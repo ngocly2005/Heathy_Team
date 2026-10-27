@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.app_health.app.core.designsystem.components.BottomNavRoute
+import com.app_health.app.core.designsystem.components.PendingFeatureScreen
 import com.app_health.app.feature.auth.register.RegisterScreen
 import com.app_health.app.feature.home.components.Account.AccountScreen
 import com.app_health.app.feature.home.components.Account.GoalSetupViewModel
@@ -31,10 +32,10 @@ fun AppNavigation(viewModel: HealthViewModel) {
 
     val currentEmail by currentUserManager.currentEmailFlow.collectAsState(initial = "loading")
 
+
     if (currentEmail == "loading") {
         return
     }
-
     LaunchedEffect(key1 = currentEmail) {
         currentEmail?.let { email ->
             viewModel.loadDataForUser(email)
@@ -110,8 +111,8 @@ fun AppNavigation(viewModel: HealthViewModel) {
 
         composable("diary") {
             DiaryScreen(
-                viewModel = viewModel,
                 currentRoute = currentBottomRoute,
+                viewModel = viewModel,
                 onNavigate = onNavigateBottomNav
             )
         }
@@ -123,40 +124,41 @@ fun AppNavigation(viewModel: HealthViewModel) {
                 onNavigate = onNavigateBottomNav
             )
         }
-
-        composable("account") {
-            AccountScreen(
-                viewModel = viewModel,
-                currentRoute = currentBottomRoute,
-                onNavigate = onNavigateBottomNav,
-                onNavigateToUpdateMetrics = { navController.navigate("update_metrics_screen") },
-                onNavigateToPhysicalProfile = { navController.navigate("physical_profile") },
-                onNavigateToCustomGoal = { navController.navigate("custom_goal_screen") },
-                onNavigateToLogin = {
-                    viewModel.clearAllSessionData()
-                    navController.navigate("login") {
-                        popUpTo(navController.graph.id) {
-                            inclusive = true
-                        }
-                    }
-                }
-            )
-        }
-
+//
+//        composable("account") {
+//            AccountScreen(
+//                currentRoute = currentBottomRoute,
+//                onNavigate = onNavigateBottomNav,
+//                onNavigateToUpdateMetrics = { navController.navigate("update_metrics_screen") },
+//                onNavigateToPhysicalProfile = { navController.navigate("physical_profile") },
+//                onNavigateToCustomGoal = { navController.navigate("custom_goal_screen") }
+////                onNavigateToLogin = {
+////                    viewModel.clearAllSessionData()
+////                    navController.navigate("login") {
+////                        popUpTo(navController.graph.id) {
+////                            inclusive = true
+////                        }
+////                    }
+////                }
+//            )
+//        }
         // ================= NHÁNH TÍNH NĂNG PHỤ / MÀN HÌNH CHI TIẾT =================
 
         composable("food_select") {
             FoodSelectScreen(
                 viewModel = viewModel,
-                selectedDate = LocalDate.now().toString(),
+                selectedDate = LocalDate.now().toString(), // ĐÃ SỬA: Bổ sung tham số ngày đang thiếu
                 timeSlot = String.format("%02d:00", java.time.LocalTime.now().hour),
                 onBack = { navController.popBackStack() }
             )
         }
 
+        composable("camera_capture") {
+            PendingFeatureScreen("Chụp ảnh món ăn", onBack = { navController.popBackStack() })
+        }
+
         composable("physical_profile") {
             PhysicalProfileScreen(
-                viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
                 onNavigateToGoalSetup = { navController.navigate("goal_setup_screen") }
             )
@@ -164,7 +166,6 @@ fun AppNavigation(viewModel: HealthViewModel) {
 
         composable("goal_setup_screen") {
             GoalSetupViewModel(
-                viewModel = viewModel, // ĐÃ BỔ SUNG
                 authManager = DataAuthManager(context, currentEmail),
                 onBackToProfile = { navController.popBackStack() }
             )
@@ -172,15 +173,12 @@ fun AppNavigation(viewModel: HealthViewModel) {
 
         composable("update_metrics_screen") {
             UpdateMetricsScreen(
-                viewModel = viewModel, // ĐÃ BỔ SUNG
                 onBackClick = { navController.popBackStack() },
                 onSaveClick = { navController.popBackStack() }
             )
         }
-
         composable("custom_goal_screen") {
             CustomizeGoal(
-                viewModel = viewModel, // ĐÃ BỔ SUNG
                 onBackClick = { navController.popBackStack() }
             )
         }
