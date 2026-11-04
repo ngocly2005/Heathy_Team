@@ -33,7 +33,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun LoginScreen(
     onNavigateToRegister: () -> Unit,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: (isAdmin: Boolean) -> Unit
+
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -125,14 +126,16 @@ fun LoginScreen(
                         // Kiểm tra với DataAuthManager tương ứng của email đó
                         val authManagerForCheck = DataAuthManager(context, cleanEmail)
                         val savedPass = authManagerForCheck.savedPassword.first()
-
+                        val isAdminAccount = (cleanEmail == "admin@gmail.com" && password == "admin123")
                         val isDefaultAccount = (cleanEmail == "test@gmail.com" && password == "123456")
                         val isRegisteredAccount = (password == savedPass && savedPass != null)
 
-                        if (isDefaultAccount || isRegisteredAccount) {
+                        if (isAdminAccount || isDefaultAccount || isRegisteredAccount) {
                             // Lưu phiên đăng nhập hiện tại để các màn hình khác biết đang dùng tài khoản nào
                             currentUserManager.saveCurrentEmail(cleanEmail)
-                            onLoginSuccess()
+
+                            // Chỉ gọi hàm này 1 lần duy nhất với tham số isAdminAccount
+                            onLoginSuccess(isAdminAccount)
                         } else {
                             passwordError = "Sai mật khẩu hoặc tài khoản chưa được đăng ký!"
                         }
@@ -168,6 +171,6 @@ fun LoginScreen(
 fun LoginScreenPreview() {
     LoginScreen(
         onNavigateToRegister = {},
-        onLoginSuccess = {}
+        onLoginSuccess = { isAdmin -> }
     )
 }

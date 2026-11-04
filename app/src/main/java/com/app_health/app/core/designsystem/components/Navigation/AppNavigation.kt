@@ -22,6 +22,7 @@ import com.app_health.app.feature.home.components.Account.CustomizeGoal
 import com.app_health.app.feature.home.components.LoginLogout.DataAuthManager
 import com.app_health.app.feature.home.components.LoginLogout.CurrentUserManager
 import java.time.LocalDate
+import com.app_health.admin.AdminMainScreen
 
 @Composable
 fun AppNavigation(viewModel: HealthViewModel) {
@@ -41,8 +42,13 @@ fun AppNavigation(viewModel: HealthViewModel) {
         }
     }
 
-    val startDestination = if (currentEmail.isNullOrBlank()) "login" else "home"
 
+    val isAdmin = currentEmail == "admin@gmail.com"
+    val startDestination = when {
+        currentEmail.isNullOrBlank() -> "login"
+        isAdmin -> "admin_main"
+        else -> "home"
+    }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination?.route
 
@@ -77,14 +83,19 @@ fun AppNavigation(viewModel: HealthViewModel) {
         composable("login") {
             LoginScreen(
                 onNavigateToRegister = { navController.navigate("register") },
-                onLoginSuccess = {
-                    navController.navigate("home") {
+                onLoginSuccess = { isUserAdmin ->
+                    // 2. Rẽ nhánh khi bấm nút Đăng nhập thành công
+                    val dest = if (isUserAdmin) "admin_main" else "home"
+                    navController.navigate(dest) {
                         popUpTo("login") { inclusive = true }
                     }
+
                 }
             )
         }
-
+        composable("admin_main") {
+            AdminMainScreen() // Composable này nằm trong thư mục admin[cite: 5]
+        }
         composable("register") {
             RegisterScreen(
                 onNavigateToLogin = { navController.popBackStack() },
