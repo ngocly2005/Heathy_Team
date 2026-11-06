@@ -7,8 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app_health.app.core.navigation.AppNavigation
-import com.app_health.app.feature.home.components.model.HealthViewModel
+import com.app_health.app.feature.integrated.ConnectedApp
 import com.app_health.app.ui.theme.AppHealthTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,10 +17,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AppHealthTheme {
-                val healthViewModel: HealthViewModel = viewModel()
-
                 Surface(color = MaterialTheme.colorScheme.background) {
-                    AppNavigation(viewModel = healthViewModel)
+                    ConnectedApp()
                 }
             }
         }
