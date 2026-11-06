@@ -112,12 +112,13 @@ fun PhotoScreen(vm: AppViewModel) {
     val enabled = !state.busy && !state.loading && !state.uncertain
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { permission = it }
     fun select(uri: Uri) {
+        val ctx = vm.context()
         scope.launch {
             try {
                 val bytes = withContext(Dispatchers.IO) { normalizedPhoto(context,uri) }
-                vm.setPhoto(bytes,"image/jpeg")
-                imageVersion++
-            } catch (e: Exception) { vm.showError(e.message ?: "Không đọc được ảnh.") }
+                if (vm.valid(ctx)) { vm.setPhoto(bytes,"image/jpeg"); imageVersion++ }
+            } catch (cancelled: CancellationException) { throw cancelled
+            } catch (e: Exception) { vm.showError(e.message ?: "Không đọc được ảnh.",ctx) }
         }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(::select) }
@@ -144,16 +145,18 @@ fun PhotoScreen(vm: AppViewModel) {
         else Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) { Text("Cho phép sử dụng camera") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = enabled && cameraReady, onClick = {
+                val ctx = vm.context()
                 val file = File(context.cacheDir,"meal-${UUID.randomUUID()}.jpg")
                 capture.takePicture(ImageCapture.OutputFileOptions.Builder(file).build(),executor,object: ImageCapture.OnImageSavedCallback {
                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                         scope.launch {
-                            try { val bytes = withContext(Dispatchers.IO) { normalizedPhoto(context,Uri.fromFile(file)) }; vm.setPhoto(bytes,"image/jpeg"); imageVersion++ }
-                            catch (e: Exception) { vm.showError(e.message ?: "Không đọc được ảnh chụp.") }
+                            try { val bytes = withContext(Dispatchers.IO) { normalizedPhoto(context,Uri.fromFile(file)) }; if(vm.valid(ctx)){vm.setPhoto(bytes,"image/jpeg"); imageVersion++} }
+                            catch (cancelled: CancellationException) { throw cancelled }
+                            catch (e: Exception) { vm.showError(e.message ?: "Không đọc được ảnh chụp.",ctx) }
                             finally { file.delete() }
                         }
                     }
-                    override fun onError(exception: ImageCaptureException) { file.delete(); vm.showError("Không chụp được ảnh.") }
+                    override fun onError(exception: ImageCaptureException) { file.delete(); vm.showError("Không chụp được ảnh.",ctx) }
                 })
             }) { Text("Chụp ảnh") }
             OutlinedButton(enabled = enabled, onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("Chọn ảnh") }

@@ -1,6 +1,25 @@
-# Kiểm chứng tích hợp 2026-11-05
+# Kiểm chứng tích hợp
 
-## Đã chạy
+## 2026-11-06 — Tải dữ liệu khi chuyển màn
+
+- Mỗi màn tự tải các dữ liệu cần dùng; dữ liệu cùng tài khoản/ngày được dùng lại.
+  Không tải toàn bộ tính năng khi chỉ mở một màn. Đổi ngày hoặc lưu dữ liệu làm
+  mới cache; lỗi đọc cũ không xuất hiện trên màn khác.
+- Phản hồi cũ bị loại khi đổi màn, ngày hoặc tài khoản, kể cả quay lại cùng màn.
+  Hủy yêu cầu khi điều hướng không hiện thành lỗi mất kết nối.
+- GET/HEAD lỗi kết nối trước khi nhận phản hồi được thử thêm tối đa một lần.
+  Không tự gửi lại POST/PUT/PATCH/DELETE, lỗi HTTP/chứng chỉ hoặc POST làm mới token.
+- 17 unit tests thành công, gồm 13 regression tests mới: chuyển màn và cache,
+  hủy/late response, đổi ngày/tài khoản, lưu rồi điều hướng, giữ khóa khi kết quả
+  ghi chưa rõ, phân biệt đã lưu với lỗi tải lại, GET bị ngắt và chống gửi trùng.
+  Test mạng dùng HTTP server cục bộ có chủ đích ngắt socket sau khi nhận request.
+- `assembleDebug` và `lintDebug` thành công; lint có 0 Error/Fatal, 110 Warning
+  trong toàn bộ project. Test/build output được đưa ra ngoài OneDrive vì
+  thư mục kết quả cũ trong source bị khóa; không thay cấu hình máy của học sinh.
+- Chưa xác nhận lại trên emulator/máy học sinh với Google và BE thật; không
+  coi các test mạng giả lập là kiểm thử thiết bị hoặc OAuth thật.
+
+## 2026-11-05 — Đã chạy
 
 - Backend: 9 regression tests HTTP thành công trong venv mới cài đúng dependencies
   repo; SQLite trong bộ nhớ, Google/Groq được mock.
@@ -16,7 +35,7 @@ BE tests kiểm tra quyền/ownership, Google exchange, refresh/revoke, hồ sơ
 snapshot khi đổi catalog, food/activity/water, saved meals, weight/diary/calendar,
 phân tích ảnh không ghi rồi xác nhận giá trị đã sửa, AI history và ngày UTC+7.
 
-## Chưa chạy và giới hạn
+## 2026-11-05 — Chưa chạy và giới hạn
 
 - Google thật, ảnh/chat Groq thật: cần Client ID, SHA-1, key và model giáo viên.
 - PostgreSQL upgrade, Docker và bootstrap Admin thật: giáo viên tự chạy theo README BE.

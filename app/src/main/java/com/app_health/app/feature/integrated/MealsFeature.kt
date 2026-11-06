@@ -36,7 +36,7 @@ fun MealsScreen(vm:AppViewModel,navigate:(String)->Unit) {
     Page {
         DateStrip(vm)
         MealInputs(meal,time,enabled,{meal=it},{time=it})
-        if(state.meals.isEmpty()) Text("Chưa có bữa ăn đã lưu. Bạn có thể lưu các món trong nhật ký bên dưới.")
+        if(!state.loading && state.error==null && state.meals.isEmpty()) Text("Chưa có bữa ăn đã lưu. Bạn có thể lưu các món trong nhật ký bên dưới.")
         state.meals.forEach {saved -> Panel(saved.name){
             saved.items.forEach{Text("${it.food_name} • ${it.grams.display()} g")}
             val total=saved.items.sumOf{it.calories_per_100g*it.grams/100}

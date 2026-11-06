@@ -10,6 +10,8 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import com.app_health.app.core.network.toUserMessage
 
 fun foodFeature() = AppFeature("food", "Tìm món ăn") { vm, navigate -> FoodScreen(vm, navigate) }
@@ -23,8 +25,8 @@ fun FoodScreen(vm: AppViewModel, navigate: (String) -> Unit) {
     var meal by rememberSaveable { mutableStateOf("snack") }
     var time by rememberSaveable { mutableStateOf(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))) }
     var searching by remember { mutableStateOf(false) }
-    LaunchedEffect(query, state.date, state.loading) {
-        if(state.loading)return@LaunchedEffect
+    LaunchedEffect(query, state.date, state.loading, state.busy, state.readRevision, state.route) {
+        if(state.loading || state.busy || state.route!="food")return@LaunchedEffect
         searching = true
         delay(300)
         val ctx = vm.context()
@@ -32,7 +34,7 @@ fun FoodScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             val results = vm.api.foods(ctx.owner,query.trim())
             vm.publish(ctx) { it.copy(foods=results) }
         } catch (e: CancellationException) { throw e
-        } catch (e: Exception) { if (vm.valid(ctx)) vm.showError(e.toUserMessage())
+        } catch (e: Exception) { currentCoroutineContext().ensureActive(); vm.showError(e.toUserMessage(),ctx)
         } finally { searching = false }
     }
     val selected = state.foods.firstOrNull { it.id == selectedId }

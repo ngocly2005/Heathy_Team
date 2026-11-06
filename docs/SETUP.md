@@ -41,6 +41,13 @@ Admin mặc định; React từ chối vào quản trị nếu chưa được c�
 
 ## Khi gặp lỗi ghi dữ liệu
 
+Chuyển màn sẽ tự tải phần dữ liệu cần thiết. Dữ liệu đã tải của cùng tài khoản/ngày
+được dùng lại; lưu thành công hoặc đổi ngày làm mới dữ liệu liên quan. Lỗi đọc ở
+màn cũ không đi theo khi chuyển màn, và phản hồi đến muộn được bỏ qua.
+GET/HEAD lỗi kết nối trước khi nhận phản hồi được thử lại tối đa một lần. Lỗi HTTP, chứng chỉ,
+thao tác ghi và làm mới token không được tự gửi lại theo cơ chế này. Bản debug ghi
+tag `HealthRead` với phương thức, đường dẫn và loại lỗi; không ghi token, body hay query.
+
 Client khóa thao tác khi đang gửi. Mất kết nối sau khi gửi có thể là server đã
 lưu: bấm Tải lại, xem nhật ký trước khi thao tác tiếp. Không tự retry POST.
 Ngày ở Home/Diary/lịch dùng chung cho món, ảnh, nước, vận động và saved meals.

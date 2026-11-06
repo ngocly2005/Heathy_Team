@@ -51,10 +51,11 @@ fun ConnectedApp() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConnectedShell(vm: AppViewModel) {
-    val features = installedFeatures()
+    val features = remember { installedFeatures() }
     var route by rememberSaveable { mutableStateOf(features.firstOrNull()?.route ?: "foundation") }
     val state by vm.state.collectAsState()
     val current = features.firstOrNull { it.route == route }
+    LaunchedEffect(route) { vm.enter(route) }
     BackHandler(enabled = state.busy) { /* Keep a pending write on screen until its result is known. */ }
     BackHandler(enabled = route != (features.firstOrNull()?.route ?: "foundation") && !state.busy) {
         route = features.firstOrNull()?.route ?: "foundation"
@@ -78,13 +79,15 @@ private fun ConnectedShell(vm: AppViewModel) {
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             if (state.loading || state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            state.error?.let { message ->
+            state.error?.takeIf { state.route == route || state.uncertain }?.let { message ->
                 Surface(color = MaterialTheme.colorScheme.errorContainer) {
                     Text(message, Modifier.fillMaxWidth().padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer)
                 }
             }
-            current?.screen?.invoke(vm) { target -> if (features.any { it.route == target }) route = target }
-                ?: Text("Phiên Google đã sẵn sàng.", Modifier.padding(24.dp))
+            key(route) {
+                current?.screen?.invoke(vm) { target -> if (features.any { it.route == target }) route = target }
+                    ?: Text("Phiên Google đã sẵn sàng.", Modifier.padding(24.dp))
+            }
         }
     }
 }

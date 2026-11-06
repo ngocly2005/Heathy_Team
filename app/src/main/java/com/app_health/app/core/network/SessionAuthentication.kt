@@ -64,18 +64,22 @@ class SessionAuthenticator(
 
             // This API uses a client with no bearer interceptor or authenticator.
             // IOException propagates: cached credentials survive temporary transport failure.
-            val result = rawAuthApi.refresh(RefreshRequest(current.refreshToken)).execute()
+            val result = try {
+                rawAuthApi.refresh(RefreshRequest(current.refreshToken)).execute()
+            } catch (failure: IOException) {
+                throw NonReplayableIOException(failure)
+            }
             if (!result.isSuccessful) {
                 result.errorBody()?.close()
                 if (result.code() == 401) {
                     sessions.clearIfRefreshTokenMatches(current.refreshToken)
                     return@synchronized null
                 }
-                throw IOException("Không thể làm mới phiên lúc này (HTTP ${result.code()}).")
+                throw NonReplayableIOException(IOException("Không thể làm mới phiên lúc này (HTTP ${result.code()})."))
             }
-            val pair = result.body() ?: throw IOException("Máy chủ trả về phiên trống.")
+            val pair = result.body() ?: throw NonReplayableIOException(IOException("Máy chủ trả về phiên trống."))
             if (pair.accessToken.isNullOrBlank() || pair.refreshToken.isNullOrBlank()) {
-                throw IOException("Máy chủ trả về phiên chưa đầy đủ.")
+                throw NonReplayableIOException(IOException("Máy chủ trả về phiên chưa đầy đủ."))
             }
             if (sessions.replaceTokens(current.refreshToken, pair.accessToken, pair.refreshToken)) {
                 pair.accessToken

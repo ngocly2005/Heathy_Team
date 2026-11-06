@@ -1,6 +1,7 @@
 package com.app_health.app.core.network
 
 import android.content.Context
+import android.util.Log
 import com.app_health.app.BuildConfig
 import com.app_health.app.core.session.SessionStore
 import com.app_health.app.feature.auth.AuthApi
@@ -30,6 +31,9 @@ class AppContainer private constructor(context: Context) {
         .writeTimeout(30, TimeUnit.SECONDS)
         // A timed out POST may already have reached the server. Let the user reload first.
         .retryOnConnectionFailure(false)
+        .addInterceptor(ReadRecoveryInterceptor { method, path, failure ->
+            if (BuildConfig.DEBUG) Log.w("HealthRead", "$method $path: $failure")
+        })
         .followRedirects(false)
         .followSslRedirects(false)
         .build()

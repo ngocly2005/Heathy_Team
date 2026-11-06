@@ -9,6 +9,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.app_health.app.core.network.toUserMessage
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -21,13 +23,13 @@ fun CalendarScreen(vm:AppViewModel,navigate:(String)->Unit) {
     val month=YearMonth.parse(monthText)
     var rows by remember(month){mutableStateOf<List<CalendarDto>>(emptyList())}
     var loading by remember{mutableStateOf(false)}
-    LaunchedEffect(month,state.loading) {
-        if(state.loading)return@LaunchedEffect
+    LaunchedEffect(month,state.loading,state.busy,state.readRevision,state.route) {
+        if(state.loading || state.busy || state.route!="calendar")return@LaunchedEffect
         val ctx=vm.context()
         loading=true
         try{val result=vm.api.calendar(ctx.owner,month.toString());if(vm.valid(ctx))rows=result}
         catch(e:CancellationException){throw e}
-        catch(e:Exception){if(vm.valid(ctx))vm.showError(e.toUserMessage())}
+        catch(e:Exception){currentCoroutineContext().ensureActive();vm.showError(e.toUserMessage(),ctx)}
         finally{loading=false}
     }
     val enabled=!state.busy && !state.uncertain
