@@ -44,7 +44,12 @@ Admin mặc định; React từ chối vào quản trị nếu chưa được c�
 Chuyển màn sẽ tự tải phần dữ liệu cần thiết. Dữ liệu đã tải của cùng tài khoản/ngày
 được dùng lại; lưu thành công hoặc đổi ngày làm mới dữ liệu liên quan. Lỗi đọc ở
 màn cũ không đi theo khi chuyển màn, và phản hồi đến muộn được bỏ qua.
-GET/HEAD lỗi kết nối trước khi nhận phản hồi được thử lại tối đa một lần. Lỗi HTTP, chứng chỉ,
+GET/HEAD lỗi kết nối trước khi nhận phản hồi được thử lại tối đa một lần. GET JSON
+thành công có body tối đa 1 MiB cũng được kiểm tra truyền đủ trước khi đọc dữ liệu;
+body không biết độ dài chỉ kiểm tra một phần đầu có giới hạn. Không đảm bảo phục hồi
+phần cuối của body lớn hoặc luồng dữ liệu. JSON sai cú pháp/khác schema được báo
+là dữ liệu chưa hợp lệ, không đổi thành thông báo mất mạng hay tự gửi lại.
+Lỗi HTTP, chứng chỉ,
 thao tác ghi và làm mới token không được tự gửi lại theo cơ chế này. Bản debug ghi
 tag `HealthRead` với phương thức, đường dẫn và loại lỗi; không ghi token, body hay query.
 
@@ -52,6 +57,18 @@ Client khóa thao tác khi đang gửi. Mất kết nối sau khi gửi có th�
 lưu: bấm Tải lại, xem nhật ký trước khi thao tác tiếp. Không tự retry POST.
 Ngày ở Home/Diary/lịch dùng chung cho món, ảnh, nước, vận động và saved meals.
 Cân nặng có ngày đo riêng. Đổi tài khoản xóa dữ liệu phiên trong bộ nhớ.
+
+## Đọc tiến độ và chỉnh số đo
+
+Thanh calo ở Trang chủ biểu thị lượng **đã ăn / mục tiêu**. Calo còn lại lấy từ BE:
+`mục tiêu − đã ăn + vận động`. Vì vậy thêm món vẫn tăng tiến độ khi lượng vận động
+đang lớn hơn lượng đã ăn. Dữ liệu nhật ký được tải lại tự động sau khi lưu thành công.
+
+Màn Cân nặng có nút đổi tháng; biểu đồ và danh sách chỉ hiện số đo trong tháng đó.
+Chọn ngày bằng lịch để thêm số đo quá khứ. Bấm biểu tượng Sửa/Xóa trong danh sách
+để thay đổi đúng ngày đã ghi. Có thể nhập dấu phẩy hoặc dấu chấm, tối đa hai chữ số
+thập phân. Ngày tương lai không được ghi; hồ sơ cần giữ ít nhất một số đo, nên thêm
+số đo khác trước khi xóa bản ghi cuối cùng. Sửa số đo cũ không thay cân nặng mới nhất.
 
 Giới hạn: không tự đồng bộ dữ liệu local cũ, không có hàng đợi ghi offline hoặc
 websocket; chart cập nhật sau xác nhận BE/tải lại. Mục tiêu cho ngày cũ dùng cấu

@@ -27,6 +27,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun valid(ctx: RequestContext) = data.valid(ctx)
     fun publish(ctx: RequestContext, transform: (AppState) -> AppState) = data.publish(ctx, transform)
     fun showError(message: String?, ctx: RequestContext? = null) = data.showError(message, ctx)
+    fun readSucceeded(ctx: RequestContext, transform: (AppState) -> AppState = { it }) = data.readSucceeded(ctx, transform)
     fun enter(route: String) = data.enter(route)
     fun chooseDate(date: LocalDate) = data.chooseDate(date)
     fun refresh() = data.refresh()

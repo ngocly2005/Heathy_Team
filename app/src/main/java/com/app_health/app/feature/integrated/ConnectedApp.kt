@@ -55,17 +55,24 @@ private fun ConnectedShell(vm: AppViewModel) {
     var route by rememberSaveable { mutableStateOf(features.firstOrNull()?.route ?: "foundation") }
     val state by vm.state.collectAsState()
     val current = features.firstOrNull { it.route == route }
+    val branded = route in setOf("home", "diary", "meals", "profile")
     LaunchedEffect(route) { vm.enter(route) }
     BackHandler(enabled = state.busy) { /* Keep a pending write on screen until its result is known. */ }
     BackHandler(enabled = route != (features.firstOrNull()?.route ?: "foundation") && !state.busy) {
         route = features.firstOrNull()?.route ?: "foundation"
     }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(current?.title ?: "AppHealth") }, actions = {
+    Scaffold(containerColor = HealthBackground, topBar = {
+        if (branded) Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { vm.refresh() }, enabled = !state.loading && !state.busy,
+                modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                Text("Tải lại", style = MaterialTheme.typography.labelMedium)
+            }
+        } else TopAppBar(title = { Text(current?.title ?: "AppHealth") }, actions = {
             TextButton(onClick = { vm.refresh() }, enabled = !state.loading && !state.busy) { Text("Tải lại") }
         })
     }, bottomBar = {
-        if(features.any{it.route=="diary"}) AppBottomNavigation(
+        if(features.any{it.route=="diary"}) AppBottomNavigation(enabled = !state.busy,
             currentRoute=when(route){"diary"->BottomNavRoute.DIARY;"meals"->BottomNavRoute.PLAN;"profile"->BottomNavRoute.ACCOUNT;else->BottomNavRoute.HOME},
             onRouteSelected={target ->if(!state.busy)route=when(target){BottomNavRoute.HOME->"home";BottomNavRoute.DIARY->"diary";BottomNavRoute.PLAN->"meals";BottomNavRoute.ACCOUNT->"profile"}},
             onNavigateToSelectFood={if(!state.busy)route="food"},onNavigateToCaptureFood={if(!state.busy)route="photo"})
@@ -94,18 +101,12 @@ private fun ConnectedShell(vm: AppViewModel) {
 
 @Composable
 fun Page(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
+    HealthPage(content)
 }
 
 @Composable
 fun Panel(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            content()
-        }
-    }
+    HealthCard(title = title, content = content)
 }
 
 @Composable

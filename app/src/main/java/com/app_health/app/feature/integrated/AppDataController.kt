@@ -3,6 +3,7 @@ package com.app_health.app.feature.integrated
 import com.app_health.app.core.network.ApiFailure
 import com.app_health.app.core.network.SessionRequestTag
 import com.app_health.app.core.network.toUserMessage
+import com.google.gson.JsonParseException
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +45,7 @@ internal class AppDataController(
     private var writeJob: Job? = null
     private val loaded = mutableSetOf<String>()
     private var uncertainRoute: String? = null
+    private var readErrorContext: RequestContext? = null
     var photoBytes: ByteArray? = null
         private set
     var photoMime = "image/jpeg"
@@ -57,6 +59,7 @@ internal class AppDataController(
         "activity" -> listOf("profile", "home", "activity")
         "water" -> listOf("home", "water")
         "meals" -> listOf("home", "meals")
+        "diary" -> listOf("diary", "water")
         "chat" -> listOf("profile", "chat")
         // Search and calendar perform their own parameterized reads.
         "photo", "food", "calendar" -> emptyList()
@@ -78,6 +81,7 @@ internal class AppDataController(
         writeJob?.cancel()
         loaded.clear()
         uncertainRoute = null
+        readErrorContext = null
         photoBytes = null
         pendingChat = null
         mutable.value = AppState()
@@ -104,7 +108,21 @@ internal class AppDataController(
     }
 
     fun showError(message: String?, ctx: RequestContext? = null) {
-        if (ownerId != null) publish(ctx ?: context()) { it.copy(error = message) }
+        if (ownerId == null) return
+        val current = ctx ?: context()
+        if (!valid(current) || mutable.value.uncertain) return
+        readErrorContext = if (message != null) current else null
+        publish(current) { it.copy(error = message) }
+    }
+
+    /** A successful read only dismisses the matching read failure, never a write warning. */
+    fun readSucceeded(ctx: RequestContext, transform: (AppState) -> AppState = { it }) {
+        if (!valid(ctx)) return
+        val clear = !mutable.value.uncertain && readErrorContext == ctx
+        if (clear) readErrorContext = null
+        publish(ctx) {
+            transform(it).copy(error = if (clear && !it.uncertain) null else it.error)
+        }
     }
 
     fun enter(route: String) {
@@ -112,6 +130,7 @@ internal class AppDataController(
         if (route != mutable.value.route) {
             readRevision++
             readJob?.cancel()
+            if (!mutable.value.uncertain) readErrorContext = null
             mutable.update { it.copy(route = route, loading = false,
                 error = if (it.uncertain) it.error else null) }
         } else if (readJob?.isActive == true) return
@@ -124,6 +143,7 @@ internal class AppDataController(
         readRevision++
         readJob?.cancel()
         loaded.clear()
+        readErrorContext = null
         mutable.update { it.copy(date = date, dashboard = null, daily = null, calendar = emptyList(),
             error = null, photo = null, photoDrafts = emptyList(), photoConfirmed = false) }
         startLoad()
@@ -143,6 +163,7 @@ internal class AppDataController(
         readRevision++
         readJob?.cancel()
         val ctx = context()
+        readErrorContext = null
         val plan = buildList {
             if (mutable.value.uncertain) {
                 // Reconcile a possibly committed mutation before allowing another write.
@@ -165,13 +186,20 @@ internal class AppDataController(
                 }
                 ensureCurrent(ctx)
                 uncertainRoute = null
-                publish(ctx) { it.copy(uncertain = false) }
+                publish(ctx) { it.copy(uncertain = false, error = null) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
                 // Cancelled transport calls must not become a connection-error banner.
                 currentCoroutineContext().ensureActive()
-                publish(ctx) { it.copy(error = (if (afterSave) "Đã lưu. Chưa tải lại được dữ liệu: " else "") + error.toUserMessage()) }
+                if (valid(ctx)) {
+                    if (!mutable.value.uncertain) readErrorContext = ctx
+                    publish(ctx) { it.copy(error = when {
+                        it.uncertain -> "Chưa rõ kết quả yêu cầu. Chưa đối chiếu được dữ liệu: ${error.toUserMessage()}"
+                        afterSave -> "Đã lưu. Chưa tải lại được dữ liệu: ${error.toUserMessage()}"
+                        else -> error.toUserMessage()
+                    }) }
+                }
             } finally {
                 publish(ctx) { it.copy(loading = false) }
             }
@@ -182,6 +210,7 @@ internal class AppDataController(
         if (mutable.value.busy || mutable.value.loading || mutable.value.uncertain || ownerId == null) return
         readRevision++
         readJob?.cancel()
+        readErrorContext = null
         // Success may navigate to another screen; the write still belongs to this account/date.
         val ctx = requestContext(trackScreen = false)
         val originRoute = mutable.value.route
@@ -199,7 +228,7 @@ internal class AppDataController(
                 throw cancelled
             } catch (error: Exception) {
                 currentCoroutineContext().ensureActive()
-                val unknown = !saved && ((error is IOException && error !is ApiFailure) ||
+                val unknown = !saved && ((error is IOException && error !is ApiFailure) || error is JsonParseException ||
                     (error is HttpException && error.code() >= 500))
                 if (valid(ctx) && unknown) {
                     loaded.clear()
@@ -223,6 +252,8 @@ internal class AppDataController(
             try {
                 ensureCurrent(ctx)
                 operation(ctx)
+                currentCoroutineContext().ensureActive()
+                readSucceeded(ctx)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {

@@ -1,5 +1,45 @@
 # Kiểm chứng tích hợp
 
+## 2026-11-08 — Tiến độ, số đo và giao diện chính
+
+- Đã đối chiếu commit sửa chuyển màn trước đó: `fad4c075a261e7f68ff36e975879a4de8716a8a4`
+  có trên nhánh main của repo chính. Không coi việc có commit là bằng chứng lỗi
+  trên máy học sinh đã hết; lần này bổ sung các nhánh còn thiếu khi rà code.
+- GET JSON nhỏ bị ngắt giữa body được phục hồi tối đa một lần, có giới hạn
+  đọc trước 1 MiB. Body lớn tiếp tục streaming; body không biết độ dài chỉ
+  kiểm tra phần đầu có giới hạn. Không retry lỗi JSON/schema, HTTP, TLS, thao tác
+  ghi hoặc lỗi lưu token sau refresh. Lỗi parse có thông báo riêng.
+- Thành công khi tìm món/tải lịch xóa đúng lỗi đọc cùng màn; không xóa cảnh báo
+  kết quả ghi chưa rõ. Nhật ký tự tải mục tiêu/cỡ ly nước khi vào trực tiếp.
+- Phản hồi của thao tác ghi không giải mã được cũng được coi là chưa rõ kết quả;
+  khóa gửi tiếp đến khi tải đối chiếu thành công, tránh tạo bản ghi trùng.
+- Tiến độ calo tính theo lượng đã ăn/mục tiêu, giữ số lẻ. Calo còn lại dùng BE,
+  có tính vận động; không sao chép số liệu minh họa. Lưu/xóa món làm mới dashboard.
+- Cân nặng có biểu đồ và danh sách theo tháng, trục ngày cố định theo độ dài
+  tháng, chọn ngày bằng DatePicker, sửa/xóa ngày quá khứ trong hộp thoại rõ ngày.
+  Giữ 2 chữ số thập phân; chặn tương lai và giải thích khi không thể xóa số đo cuối.
+- Đổi Home, Diary, Meals và Profile sang trắng/mint, giữ dữ liệu/API và chức năng
+  thật. Giữ bốn tab Trang chủ/Nhật ký/Thực đơn/Tài khoản và nút thêm món.
+  Không thêm Reports, Shopping, Premium, thông báo hoặc thuộc tính tài khoản giả.
+- Dải tuần dùng mốc tuần ổn định; duyệt tuần rồi chọn ngày không cộng độ lệch lần
+  hai. Chữ/nút dùng mint đậm để dễ đọc; các vùng nhiều cột đổi bố cục khi chữ lớn.
+- 49 JVM tests thành công (32 regression tests mới trong đợt này); BE có 12 HTTP
+  tests thành công (3 mới). Bao gồm socket bị cắt giữa JSON, không replay mutation/
+  refresh, cảnh báo ghi chưa rõ, thêm/xóa món khi net calo âm, tháng nhuận,
+  chuyển ngày/tài khoản và độ chính xác khi chỉnh số đo/khẩu phần.
+- `assembleDebug` và `lintDebug` thành công sau lần chỉnh code cuối: 0 Error/Fatal,
+  112 Warning và 2 Hint trong toàn project (2 Warning mới là quy ước vị trí tham số
+  Modifier ở component dùng chung). Các cảnh báo thư viện cũ vẫn được báo đầy đủ.
+- Đã render 12 ảnh Compose: 5 màn Home/Diary/Meals/Profile/Weight, calorie card,
+  2 trường hợp Diary/Profile rộng 320dp chữ 150%, và 4 viewport 393×852dp.
+  Đã xem ảnh để đối chiếu bố cục và lịch/mascot của Nhật ký. Không thấy chữ/
+  card đè nhau hoặc bị cắt trong các ảnh đã kiểm tra. Thử nghiệm dùng bản source
+  UI/resources trùng SHA256 với production, VM/API fixture không gọi mạng, footer
+  thật, không mở bottom sheet. Bộ render nằm ngoài repo sản phẩm, không thêm
+  plugin/dependency hoặc yêu cầu cài đặt cho học sinh. Đây là kiểm tra hiển thị;
+  chưa kiểm thử tương tác trên emulator, Google, camera hoặc BE/provider thật.
+- Không thêm migration hay upgrade DB. Bộ chia sprint được giữ nguyên.
+
 ## 2026-11-06 — Tải dữ liệu khi chuyển màn
 
 - Mỗi màn tự tải các dữ liệu cần dùng; dữ liệu cùng tài khoản/ngày được dùng lại.

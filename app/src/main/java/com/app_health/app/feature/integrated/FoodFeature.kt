@@ -32,7 +32,7 @@ fun FoodScreen(vm: AppViewModel, navigate: (String) -> Unit) {
         val ctx = vm.context()
         try {
             val results = vm.api.foods(ctx.owner,query.trim())
-            vm.publish(ctx) { it.copy(foods=results) }
+            vm.readSucceeded(ctx) { it.copy(foods=results) }
         } catch (e: CancellationException) { throw e
         } catch (e: Exception) { currentCoroutineContext().ensureActive(); vm.showError(e.toUserMessage(),ctx)
         } finally { searching = false }

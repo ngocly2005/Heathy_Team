@@ -1,6 +1,8 @@
 package com.app_health.app.core.network
 
 import com.google.gson.JsonParser
+import com.google.gson.JsonParseException
+import com.google.gson.stream.MalformedJsonException
 import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
 import java.io.IOException
@@ -37,6 +39,7 @@ fun Throwable.toUserMessage(): String = when (this) {
     is CancellationException -> throw this
     is ApiFailure -> message ?: "Yêu cầu thất bại."
     is HttpException -> apiErrorMessage(code(), runCatching { response()?.errorBody()?.string() }.getOrNull())
+    is JsonParseException, is MalformedJsonException -> "Dữ liệu máy chủ trả về chưa hợp lệ. Vui lòng thử tải lại."
     is IOException -> "Không kết nối được máy chủ. Kiểm tra mạng và địa chỉ backend rồi thử lại."
     else -> "Không thể xử lý dữ liệu. Vui lòng thử lại."
 }

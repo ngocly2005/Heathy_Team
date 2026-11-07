@@ -1,5 +1,6 @@
 package com.app_health.app.feature.integrated
 
+import com.app_health.app.core.network.ApiFailure
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
@@ -25,6 +26,9 @@ class AppDataControllerTest {
         }
 
         fun respond(route: String, ctx: RequestContext) {
+            if (route == "water") data.publish(ctx) {
+                it.copy(water = WaterSettingsDto(null, 200, 2500))
+            }
             if (route == "meals") data.publish(ctx) {
                 it.copy(meals = listOf(SavedMealDto(1, "Bữa đã lưu", emptyList())))
             }
@@ -198,5 +202,82 @@ class AppDataControllerTest {
         advanceUntilIdle()
         assertEquals(1, writes)
         assertNull(data.state.value.error)
+    }
+
+    @Test fun successfulReadClearsItsOldFailureWithoutRequiringManualReload() = runTest {
+        val data = Backend(this).data
+        data.enter("food")
+        val ctx = data.context()
+        data.showError("A previous search failed", ctx)
+        data.readSucceeded(ctx) { it.copy(foods = listOf(FoodDto(1, "Apple", 52.0, 0.3, 14.0, 0.2))) }
+        assertNull(data.state.value.error)
+        assertEquals("Apple", data.state.value.foods.single().name)
+    }
+
+    @Test fun staleReadSuccessCannotClearANewerScreenFailure() = runTest {
+        val data = Backend(this).data
+        data.enter("food")
+        val old = data.context()
+        data.enter("profile")
+        advanceUntilIdle()
+        data.enter("food")
+        val current = data.context()
+        data.showError("Current failed search", current)
+        data.readSucceeded(old) { it.copy(foods = listOf(FoodDto(1, "Wrong result", 1.0, 0.0, 0.0, 0.0))) }
+        assertEquals("Current failed search", data.state.value.error)
+        assertTrue(data.state.value.foods.isEmpty())
+        data.readSucceeded(current)
+        assertNull(data.state.value.error)
+    }
+
+    @Test fun readSuccessDoesNotHideAValidationErrorOrAnUncertainWrite() = runTest {
+        val data = Backend(this).data
+        data.enter("food")
+        data.write { throw ApiFailure(422, "Invalid portion") }
+        advanceUntilIdle()
+        data.readSucceeded(data.context())
+        assertEquals("Invalid portion", data.state.value.error)
+        data.write { throw IOException("The response was lost") }
+        advanceUntilIdle()
+        val warning = data.state.value.error
+        data.readSucceeded(data.context())
+        data.showError("Background search failed", data.context())
+        assertTrue(data.state.value.uncertain)
+        assertEquals(warning, data.state.value.error)
+    }
+
+    @Test fun malformedWriteResponseRequiresReconciliationBeforeAnotherWrite() = runTest {
+        val backend = Backend(this)
+        val data = backend.data
+        data.enter("food")
+        var writes = 0
+        data.write {
+            writes++
+            // The server may have committed even when its response cannot be decoded.
+            throw com.google.gson.JsonSyntaxException("Expected object but got array")
+        }
+        advanceUntilIdle()
+        assertTrue(data.state.value.uncertain)
+        assertFalse(data.state.value.busy)
+        val warning = data.state.value.error
+        data.readSucceeded(data.context())
+        assertEquals(warning, data.state.value.error)
+        data.write { writes++ }
+        advanceUntilIdle()
+        assertEquals(1, writes)
+        data.refresh()
+        advanceUntilIdle()
+        assertTrue(backend.calls.any { it.first == "diary" })
+        assertFalse(data.state.value.uncertain)
+        assertNull(data.state.value.error)
+        assertEquals(1, writes)
+    }
+
+    @Test fun diaryLoadsWaterTargetAlongsideTheSelectedDay() = runTest {
+        val backend = Backend(this)
+        backend.data.enter("diary")
+        advanceUntilIdle()
+        assertEquals(listOf("diary", "water"), backend.calls.map { it.first })
+        assertEquals(2500, backend.data.state.value.water!!.effective_target_ml)
     }
 }

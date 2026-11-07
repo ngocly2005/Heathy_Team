@@ -27,7 +27,7 @@ fun CalendarScreen(vm:AppViewModel,navigate:(String)->Unit) {
         if(state.loading || state.busy || state.route!="calendar")return@LaunchedEffect
         val ctx=vm.context()
         loading=true
-        try{val result=vm.api.calendar(ctx.owner,month.toString());if(vm.valid(ctx))rows=result}
+        try{val result=vm.api.calendar(ctx.owner,month.toString());if(vm.valid(ctx)){rows=result;vm.readSucceeded(ctx)}}
         catch(e:CancellationException){throw e}
         catch(e:Exception){currentCoroutineContext().ensureActive();vm.showError(e.toUserMessage(),ctx)}
         finally{loading=false}
