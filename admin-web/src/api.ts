@@ -1,4 +1,5 @@
 import { HttpError, type AuthProvider, type DataProvider } from 'react-admin';
+import { adminAccountDeniedMessage, disableGoogleAutoSelect } from './googleSignIn.mjs';
 
 const origin = new URL(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
 if (!['http:', 'https:'].includes(origin.protocol) || origin.pathname !== '/' || origin.username || origin.password || origin.search || origin.hash) {
@@ -74,14 +75,16 @@ export const authProvider: AuthProvider = {
         const tokens: Tokens = await json(await raw('/auth/google', { method: 'POST', body: JSON.stringify({ id_token: credential }) }));
         const user: User = await json(await raw('/auth/me', { headers: { Authorization: `Bearer ${tokens.access_token}` } }));
         if (user.role !== 'admin' || user.status !== 'active') {
+            disableGoogleAutoSelect(window.google?.accounts?.id);
             await raw('/auth/logout', { method: 'POST', body: JSON.stringify({ refresh_token: tokens.refresh_token }) }).catch(() => undefined);
-            throw new Error('Tài khoản này chưa được cấp quyền quản trị.');
+            throw new Error(adminAccountDeniedMessage(user.email));
         }
         save({ ...tokens, user });
     },
     logout: async () => {
         const previous = session();
         clear();
+        disableGoogleAutoSelect(window.google?.accounts?.id);
         if (previous) await raw('/auth/logout', { method: 'POST', body: JSON.stringify({ refresh_token: previous.refresh_token }) }).catch(() => undefined);
         return '/login';
     },

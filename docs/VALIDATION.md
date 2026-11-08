@@ -1,5 +1,20 @@
 # Kiểm chứng tích hợp
 
+## 2026-11-08 — Cấu hình Google web và nhận biết tài khoản
+
+- 7 tests web thành công (5 mới): cấu hình ID-token popup không tự chọn tài khoản,
+  Client ID rỗng bị chặn, logout/reject gọi disableAutoSelect nhưng không revoke
+  tài khoản Google, lỗi thư viện Google không ngăn app logout, email từ chối rõ ràng.
+- TypeScript và production build thành công; còn cảnh báo bundle lớn có sẵn.
+- Code cũ đã có `auto_select=false`. Thêm rõ `button_auto_select=false`, popup,
+  chặn callback đăng nhập đồng thời, ghi trạng thái Google khi logout/reject và
+  hướng dẫn chọn tài khoản khác. Quyền Admin vẫn do BE quyết định, không hard-code email.
+- Bản dev hiện origin của tab để cấu hình đúng Web OAuth client. Lỗi trong ảnh
+  `no registered origin` cần sửa Authorized JavaScript origins trong Google Cloud;
+  thay đổi source không thể tự đăng ký origin và không bảo đảm ép bộ chọn tài khoản.
+- Chưa xác nhận Google thật trên máy học sinh hoặc sửa Google Cloud của họ.
+  Không thay BE/Android, không thêm migration; không chạy lại các bộ tests không đổi.
+
 ## 2026-11-08 — Chat đầy đủ và Admin Android/web song song
 
 - 70 JVM tests thành công, gồm 21 tests mới (7 chat và 14 native Admin).

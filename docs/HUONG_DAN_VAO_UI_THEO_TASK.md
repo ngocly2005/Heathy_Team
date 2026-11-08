@@ -370,7 +370,8 @@ Lịch tuần ở Trang chủ/Nhật ký/Thực đơn cũng cho đổi ngày, nh
 | Admin báo tài khoản chưa có quyền | Đăng nhập Android trước; giáo viên chạy lệnh cấp Admin cho đúng email, đúng database; đăng xuất/đăng nhập lại web |
 | Lệnh cấp Admin không tìm thấy tài khoản | Kiểm tra email Google đã đăng nhập và cấu hình DB/môi trường Python của Terminal BE |
 | Trang web báo Google chưa cấu hình | Điền `VITE_GOOGLE_WEB_CLIENT_ID` trong `admin-web/.env.local`, rồi khởi động lại Vite |
-| Google báo lỗi origin | Kiểm tra đúng Web OAuth client và origin `http://127.0.0.1:5173`; đối chiếu thêm CORS của BE |
+| Google báo `401 invalid_client` / `no registered origin` | Mở đúng Web OAuth client có ID đang dùng trong `.env.local`, thêm origin web vào **Authorized JavaScript origins** của Google Cloud; không chỉ sửa CORS BE. Xem origin thực tế trên trang đăng nhập bản dev |
+| Google dùng tài khoản sẵn trong Chrome | Sau khi sửa lỗi origin, đăng xuất web nếu còn phiên; trong cửa sổ Google chọn **Sử dụng tài khoản khác** và đăng nhập email Admin. Thông báo từ chối quyền hiện email đã chọn; đổi role DB không tự chuyển tài khoản Google |
 | Trình duyệt báo không kết nối được Admin | Kiểm tra Terminal `npm run dev` còn chạy; Admin và BE cần hai tiến trình riêng |
 | Android không kết nối được BE | Kiểm tra BE đang chạy, URL emulator/điện thoại thật, mạng và `/health` từ thiết bị |
 | Nút Gửi trong chat không bấm được | Đợi tải/lưu xong, nhập ít nhất hai ký tự, kiểm tra đã có hồ sơ và xử lý cảnh báo kết quả ghi chưa rõ nếu có |

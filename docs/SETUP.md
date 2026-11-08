@@ -39,6 +39,36 @@ Giáo viên tự cấp role bằng `python -m app.admin_setup --email "email-da-
 trong repo BE, thay bằng email Google đã đăng nhập và đang hoạt động. Không có
 Admin mặc định; React từ chối vào quản trị nếu chưa được cấp role.
 
+### Google báo `401 invalid_client` / `no registered origin`
+
+Đây là lỗi ở bước xác thực Google, trước khi BE kiểm tra quyền Admin. Mở đúng
+OAuth client loại **Web application** có Client ID đang dùng trong `.env.local`;
+không dùng Android OAuth client. Thêm origin thực tế của trang Admin vào
+**Authorized JavaScript origins**, ví dụ `http://127.0.0.1:5173`.
+Nếu dùng localhost, Google hướng dẫn thêm cả `http://localhost` và
+`http://localhost:5173`. Origin không có đường dẫn như `/#/login`; không đăng ký
+địa chỉ popup `accounts.google.com` hoặc URL BE thay cho URL web.
+
+Bản dev hiện origin thực tế trên trang đăng nhập để đối chiếu. Source không thể
+đọc hay tự sửa danh sách origins của Google Cloud; đổi role ở database hoặc sửa
+CORS BE không tự sửa được lỗi Google này. Sau khi sửa `.env.local`, dừng Vite rồi
+chạy lại `npm run dev`; sau khi lưu Cloud config, tải lại trang và thử đăng nhập.
+
+### Chọn email Admin khác tài khoản Google đang có trong Chrome
+
+Quyền `admin` gắn với tài khoản BE, không điều khiển tài khoản mà Google chọn.
+Nếu web còn một phiên đăng nhập, **Đăng xuất web** trước khi đổi tài khoản.
+Trong cửa sổ Google chọn **Sử dụng tài khoản khác / Use another account** và đăng
+nhập email đã được giáo viên cấp quyền. Web dùng `auto_select=false`,
+`button_auto_select=false`, không truyền `login_hint` và không hard-code email.
+Khi thoát web hoặc bị từ chối role/status, web gọi `disableAutoSelect()` để ghi
+nhận việc không tiếp tục tự đăng nhập; thao tác này không đăng xuất Google khỏi
+Chrome và không bảo đảm buộc Google hiển thị một bộ chọn tài khoản cụ thể.
+Thông báo từ chối hiện email do BE trả về để người dùng nhận biết tài khoản đã chọn.
+
+Tài liệu chính thức: [Google Web Setup](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid),
+[Google Identity JS API](https://developers.google.com/identity/gsi/web/reference/js-reference).
+
 ## Admin trên Android dùng cùng BE
 
 Cùng tài khoản Google đã cấp `role=admin` có thể quản trị cả trên Android và web.
