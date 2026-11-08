@@ -15,9 +15,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.app_health.app.core.network.AppContainer
 import com.app_health.app.core.session.AuthState
 import com.app_health.app.feature.auth.AuthViewModel
+import com.app_health.app.feature.adminconnected.ConnectedAdminScreen
 import com.app_health.app.core.designsystem.components.AppBottomNavigation
 import com.app_health.app.core.designsystem.components.BottomNavRoute
 
@@ -42,21 +45,36 @@ fun ConnectedApp() {
         }
         is AuthState.SignedIn -> key(current.user.id) {
             val vm: AppViewModel = viewModel(key = "connected-${current.user.id}")
+            // Initial landing follows BE identity; an explicit return to health stays there.
+            var adminOpen by rememberSaveable { mutableStateOf(current.user.role == "admin" && !current.offline) }
+            LaunchedEffect(current.user.role) {
+                if (current.user.role != "admin" && adminOpen) {
+                    adminOpen = false
+                    vm.refresh()
+                }
+            }
             DisposableEffect(vm) { vm.activate(); onDispose { vm.releaseIfSessionChanged() } }
-            ConnectedShell(vm)
+            LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { auth.refreshIdentity() }
+            if (adminOpen && current.user.role == "admin") ConnectedAdminScreen(container = container,
+                onExit = { adminOpen = false; vm.refresh() },
+                onLogout = { auth.logout() })
+            else ConnectedShell(vm, onOpenAdmin = { adminOpen = true }, onRefreshIdentity = { auth.refreshIdentity() })
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ConnectedShell(vm: AppViewModel) {
+private fun ConnectedShell(vm: AppViewModel, onOpenAdmin: () -> Unit, onRefreshIdentity: () -> Unit) {
     val features = remember { installedFeatures() }
     var route by rememberSaveable { mutableStateOf(features.firstOrNull()?.route ?: "foundation") }
     val state by vm.state.collectAsState()
     val current = features.firstOrNull { it.route == route }
     val branded = route in setOf("home", "diary", "meals", "profile")
-    LaunchedEffect(route) { vm.enter(route) }
+    LaunchedEffect(route) {
+        vm.enter(route)
+        if (route == "profile") onRefreshIdentity()
+    }
     BackHandler(enabled = state.busy) { /* Keep a pending write on screen until its result is known. */ }
     BackHandler(enabled = route != (features.firstOrNull()?.route ?: "foundation") && !state.busy) {
         route = features.firstOrNull()?.route ?: "foundation"
@@ -64,12 +82,12 @@ private fun ConnectedShell(vm: AppViewModel) {
     Scaffold(containerColor = HealthBackground, topBar = {
         if (branded) Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { vm.refresh() }, enabled = !state.loading && !state.busy,
+            TextButton(onClick = { vm.refresh(); onRefreshIdentity() }, enabled = !state.loading && !state.busy,
                 modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
                 Text("Tải lại", style = MaterialTheme.typography.labelMedium)
             }
         } else TopAppBar(title = { Text(current?.title ?: "AppHealth") }, actions = {
-            TextButton(onClick = { vm.refresh() }, enabled = !state.loading && !state.busy) { Text("Tải lại") }
+            TextButton(onClick = { vm.refresh(); onRefreshIdentity() }, enabled = !state.loading && !state.busy) { Text("Tải lại") }
         })
     }, bottomBar = {
         if(features.any{it.route=="diary"}) AppBottomNavigation(enabled = !state.busy,
@@ -92,7 +110,10 @@ private fun ConnectedShell(vm: AppViewModel) {
                 }
             }
             key(route) {
-                current?.screen?.invoke(vm) { target -> if (features.any { it.route == target }) route = target }
+                current?.screen?.invoke(vm) { target ->
+                    if (target == "admin" && !state.busy) onOpenAdmin()
+                    else if (features.any { it.route == target }) route = target
+                }
                     ?: Text("Phiên Google đã sẵn sàng.", Modifier.padding(24.dp))
             }
         }

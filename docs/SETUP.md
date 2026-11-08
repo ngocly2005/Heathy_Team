@@ -39,6 +39,30 @@ Giáo viên tự cấp role bằng `python -m app.admin_setup --email "email-da-
 trong repo BE, thay bằng email Google đã đăng nhập và đang hoạt động. Không có
 Admin mặc định; React từ chối vào quản trị nếu chưa được cấp role.
 
+## Admin trên Android dùng cùng BE
+
+Cùng tài khoản Google đã cấp `role=admin` có thể quản trị cả trên Android và web.
+Android mở cổng quản trị khi đăng nhập tài khoản Admin; có thể chọn về ứng dụng
+sức khỏe, sau đó mở lại qua **Tài khoản → Quản trị viên → Mở quản trị**.
+Màn quản trị đọc lại `/auth/me` và dùng `/admin/*`; BE quyết định quyền ở từng
+yêu cầu. App không dùng email/mật khẩu mẫu hoặc danh sách Admin riêng.
+
+Nếu giáo viên đổi role trong DB khi Android đang mở, trở về màn Tài khoản và bấm
+**Tải lại**, hoặc đưa app ra nền rồi mở lại để cập nhật danh tính. Sau khi thu hồi
+quyền, BE từ chối các API Admin; app xóa phần dữ liệu quản trị đã tải khi bị từ chối.
+Hai UI dùng cùng database qua BE, nên sửa danh mục trên một bên rồi tải lại ở bên
+còn lại để xem thay đổi. Không có đồng bộ thời gian thực giữa hai UI.
+
+## Chat: thực đơn và câu hỏi tiếp
+
+Mỗi câu trả lời AI hiển thị đầy đủ `answer` và các chi tiết bữa ăn `suggestions`
+trong lịch sử cuộn. Lịch sử cũ vẫn đọc được các chi tiết đó. Trường mới
+`follow_up_questions` chỉ chứa câu hỏi ngắn để gợi ý nhập tiếp; bấm gợi ý điền vào
+ô soạn, không tự gửi. Nếu bản ghi cũ chưa có trường này, app dùng các câu hỏi mẫu
+như “Chi tiết bữa trưa”, “Đổi sang món chay”. Lịch sử gửi cho AI bao gồm cả các bữa
+đã gợi ý, để câu hỏi tiếp có đủ ngữ cảnh. Đây là thay đổi payload JSON, không cần
+migration mới; cập nhật BE và Android cùng đợt. React Admin tiếp tục xem được AI logs.
+
 ## Khi gặp lỗi ghi dữ liệu
 
 Chuyển màn sẽ tự tải phần dữ liệu cần thiết. Dữ liệu đã tải của cùng tài khoản/ngày

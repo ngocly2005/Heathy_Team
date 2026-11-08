@@ -1,5 +1,35 @@
 # Kiểm chứng tích hợp
 
+## 2026-11-08 — Chat đầy đủ và Admin Android/web song song
+
+- 70 JVM tests thành công, gồm 21 tests mới (7 chat và 14 native Admin).
+  `assembleDebug` và `lintDebug` thành công; 0 Error/Fatal, 112 Warning, 2 Hint
+  trong toàn project. BE có 19 tests thành công (7 mới); React Admin có 2 tests
+  và production build thành công, còn cảnh báo bundle lớn như trước.
+- Chat đọc cả payload cũ/mới, giữ mọi bữa ăn dài trong từng tin AI, tách câu hỏi
+  tiếp ra khỏi nội dung thực đơn; bấm chip chỉ điền composer. Đã kiểm tra tải thêm
+  lịch sử không cuộn về tin mới nhất, cùng ngữ cảnh BE bao gồm bữa ăn đã gợi ý.
+- Native Admin dùng cùng API/role/database với React Admin. Kiểm tra quyền live,
+  đổi role trong DB khi JWT vẫn còn hạn, từ chối tự nâng role qua form trạng thái,
+  thu hồi quyền, lỗi lưu danh tính sau thu hồi, phản hồi cũ/đổi tài khoản và khóa
+  gửi tiếp khi chưa rõ kết quả mutation. Không tự gửi lại thao tác ghi.
+- Native có Tổng quan/biểu đồ, danh sách người dùng/đổi trạng thái, thực phẩm và
+  bài tập CRUD/ngừng dùng, lịch sử AI/chi tiết; Profile có Mở quản trị và lối về
+  giao diện sức khỏe. Quyền BE được đọc lại khi tải/ghi và khi trở lại app.
+- Đã render 14 preview Compose ngoài repo sản phẩm: xem được 13 bố cục chat,
+  nội dung thực đơn đầy đủ, native dashboard/danh sách/bộ lọc/từ chối quyền,
+  gồm màn 320dp và chữ 150%. Một preview CatalogEditor AlertDialog ra ảnh trắng
+  do host renderer không chụp overlay; chưa xác nhận trực quan popup này. Không
+  coi ảnh trắng là lỗi production hoặc coi render pass là kiểm thử tương tác.
+- Fixture render dùng 15 file UI trùng SHA256 và 3 hàm UI trích nguyên văn, VM/API
+  mẫu không gọi mạng; dependencies render không được thêm vào repo sản phẩm.
+- Chưa kiểm thử Google/Groq, camera, trình duyệt web hoặc thao tác trên emulator
+  với server thật trong đợt này. Không thêm migration, không upgrade DB thật;
+  582 file BE chia sprint giữ nguyên. Tài liệu vào UI đã cập nhật cho cả hai Admin.
+- Lượt unit test đầu có một assertion so sánh cả khoảng trắng cuối nội dung mẫu;
+  đã đối chiếu chuẩn hóa whitespace của phần hiển thị và sửa expected test.
+  Lượt cuối giữ đầy đủ nội dung và toàn bộ 70 tests thành công.
+
 ## 2026-11-08 — Tiến độ, số đo và giao diện chính
 
 - Đã đối chiếu commit sửa chuyển màn trước đó: `fad4c075a261e7f68ff36e975879a4de8716a8a4`

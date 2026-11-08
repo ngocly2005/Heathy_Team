@@ -4,13 +4,20 @@ Bản UI chính để giáo viên push vào `ngocly2005/Heathy_Team`, học sinh
 Backend tương ứng là repo riêng `ngocly2005/App_Heathy_BE`; cần source tích hợp
 và migration `20261105_0011`. Xem [cấu hình](docs/SETUP.md) trước khi chạy.
 
+Học sinh xem [hướng dẫn vào UI theo từng task](docs/HUONG_DAN_VAO_UI_THEO_TASK.md),
+gồm cách mở/đăng nhập React Admin (task 5/11/16) và chat AI (task 12).
+
 ## Bản chạy chính
 
 `MainActivity` mở `feature/integrated/ConnectedApp.kt`. Các màn đã nối API dùng
 ViewModel và ngày chung, không ghi nhật ký sức khỏe vào SharedPreferences.
-Giữ theme, thanh điều hướng, vòng calo, thẻ nước và lịch tuần từ UI hiện có.
-Các màn cục bộ cũ được giữ để tham khảo, không phải luồng chạy chính; tài khoản
-mẫu và Admin Kotlin cũ không mở được qua luồng đăng nhập mới. Dữ liệu local cũ
+Giữ theme, thanh điều hướng, tiến độ calo, thẻ nước và lịch tuần từ UI hiện có.
+Admin Android dùng `feature/adminconnected`, Google/session và các API Admin BE
+giống React Admin web. Tài khoản `admin` vào cổng quản trị khi đăng nhập; từ giao
+diện sức khỏe có thể mở lại tại Tài khoản → Quản trị viên → Mở quản trị.
+Quản trị có lối về ứng dụng và đăng xuất; quyền được kiểm tra lại từ BE trước khi
+tải/ghi dữ liệu, không xác định bằng email cố định. Các màn cục bộ cũ được giữ để
+tham khảo; tài khoản mẫu và màn Admin dữ liệu local không phải luồng mới. Dữ liệu local cũ
 không bị xóa và không tự tải lên tài khoản Google.
 
 | Sprint/task | Source tính năng tích hợp |
@@ -26,7 +33,7 @@ không bị xóa và không tự tải lên tài khoản Google.
 | S2-T04 | Saved meals CRUD, lưu từ nhật ký, quick-add |
 | S2-T05 | Cân nặng có ngày, chỉnh/xóa, biểu đồ xu hướng |
 | S2-T06 | React Admin CRUD thực phẩm/bài tập |
-| S3-T01 | Chat, lịch sử riêng user, suggestion bubbles |
+| S3-T01 | Chat, bữa ăn đầy đủ trong từng tin AI, nút hỏi tiếp riêng và lịch sử riêng user |
 | S3-T02 | Diary tổng hợp và sửa/xóa món/vận động/nước/ghi chú |
 | S3-T03 | Lịch tháng/tuần, marker BE, chọn ngày quá khứ |
 | S3-T04 | React Admin charts, bộ lọc, lịch sử AI |

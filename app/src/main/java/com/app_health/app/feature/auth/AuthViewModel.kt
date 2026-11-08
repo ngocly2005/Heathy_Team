@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.app_health.app.core.network.toUserMessage
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -20,6 +21,35 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     val logoutWarning = repository.logoutWarning
     private val mutableUiState = MutableStateFlow(AuthUiState())
     val uiState = mutableUiState.asStateFlow()
+    private var identityRefresh: Job? = null
+
+    /** Re-read BE role after returning to the app or reloading Account; coalesce callers. */
+    fun refreshIdentity() {
+        if (mutableUiState.value.busy || identityRefresh?.isActive == true) return
+        identityRefresh = viewModelScope.launch {
+            try { repository.restoreSession(force = true) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                mutableUiState.value = mutableUiState.value.copy(error = error.toUserMessage())
+            }
+        }
+    }
+
+    fun logout() {
+        if (mutableUiState.value.busy) return
+        mutableUiState.value = AuthUiState(busy = true)
+        viewModelScope.launch {
+            try {
+                repository.logout()
+                mutableUiState.value = AuthUiState()
+            } catch (cancelled: CancellationException) {
+                mutableUiState.value = AuthUiState()
+                throw cancelled
+            } catch (error: Exception) {
+                mutableUiState.value = AuthUiState(error = error.toUserMessage())
+            }
+        }
+    }
 
     fun signIn(activityContext: Context) {
         if (mutableUiState.value.busy) return

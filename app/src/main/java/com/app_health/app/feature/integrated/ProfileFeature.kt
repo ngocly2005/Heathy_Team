@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import com.app_health.app.R
+import com.app_health.app.core.session.AuthState
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.time.Instant
@@ -55,7 +56,8 @@ fun NumberInput(label: String, value: String, enabled: Boolean = true, onChange:
 fun ProfileScreen(vm: AppViewModel, navigate: (String) -> Unit) {
     val state by vm.state.collectAsState()
     val profile = state.profile
-    val user = vm.container.sessionStore.snapshot()?.user
+    val identity by vm.container.sessionStore.state.collectAsState()
+    val user = (identity as? AuthState.SignedIn)?.user
     var editing by rememberSaveable { mutableStateOf(false) }
     var birthPicker by rememberSaveable { mutableStateOf(false) }
     var loggingOut by remember { mutableStateOf(false) }
@@ -113,6 +115,15 @@ fun ProfileScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             }
             Text("Các chỉ số được tính từ hồ sơ đã lưu và dùng để tham khảo.",
                 color = Muted, style = MaterialTheme.typography.bodySmall)
+        }
+
+        if (user?.role == "admin") HealthCard(title = "Quản trị viên") {
+            Text("Quản lý người dùng, thực phẩm, bài tập và thống kê bằng dữ liệu chung với trang web Admin.",
+                color = Muted, style = MaterialTheme.typography.bodyMedium)
+            Button(enabled = !state.busy, onClick = { navigate("admin") }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.AdminPanelSettings, null)
+                Spacer(Modifier.width(8.dp)); Text("Mở quản trị")
+            }
         }
 
         HealthCard(title = "Hồ sơ thể chất", actionLabel = if (enabled) if (profile == null) "Thiết lập" else "Chỉnh sửa" else null,

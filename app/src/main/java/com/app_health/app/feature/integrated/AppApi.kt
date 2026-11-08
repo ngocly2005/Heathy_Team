@@ -34,7 +34,8 @@ data class DiaryDto(val content: String, val mood: String?)
 data class DailyDto(val date: String, val dashboard: DashboardDto, val water_logs: List<WaterLogDto>,
     val weight: WeightDto?, val diary: DiaryDto?)
 data class CalendarDto(val date: String, val status: String, val has_diary: Boolean, val weight_kg: Double?)
-data class ChatAnswerDto(val answer: String, val suggestions: List<String>, val disclaimer: String)
+data class ChatAnswerDto(val answer: String, val suggestions: List<String>, val disclaimer: String,
+    val follow_up_questions: List<String>? = null)
 data class ChatHistoryDto(val id: Long, val question: String?, val response: ChatAnswerDto?, val status: String,
     val error_code: Int?, val created_at: String)
 data class PhotoItemDto(val name: String, val estimated_grams: Double, val calories_kcal: Double,
