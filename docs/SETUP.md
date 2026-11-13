@@ -1,5 +1,20 @@
 # Cấu hình giáo viên và học sinh
 
+## Cập nhật 13/11: email/mật khẩu và 32 task
+
+Pull cả FE và BE; cài requirements BE có Argon2 và tự chạy migration head
+`20261113_0012` theo README BE. Màn đầu Android có Đăng ký/Đăng nhập email và nút
+Google song song. Email cần BE đang chạy; đăng nhập email không cần Google Client ID.
+
+Tài khoản Google cũ: đăng nhập Google → Tài khoản → Bảo mật tài khoản → thêm mật khẩu.
+Tài khoản email muốn dùng Google: đăng nhập email → Bảo mật tài khoản → Liên kết
+tài khoản Google có cùng email. Không đăng ký lại cùng email để tránh tài khoản trùng.
+Nếu thao tác bảo mật bị ngắt mạng, bấm Tải lại phương thức đăng nhập để đối chiếu.
+
+Web Admin có form email/mật khẩu dù chưa cấu hình Google. Teacher cấp role cho
+email đã tồn tại bằng admin_setup như trước; Android và web đọc cùng quyền BE.
+Không có nút tự đăng ký Admin. Xem [32 task và lịch](SPRINT_AUDIT_20261113.md).
+
 ## Android kết nối BE
 
 Giữ `local.properties` riêng từng máy, không commit. Thêm và điền Web Client ID thật:
@@ -36,7 +51,7 @@ OAuth JavaScript origins và `CORS_ORIGINS` BE. Dev cho phép HTTP tới máy LA
 production cần HTTPS cho BE từ xa. Không đặt Groq/JWT secret vào Vite.
 
 Giáo viên tự cấp role bằng `python -m app.admin_setup --email "email-da-dang-nhap"`
-trong repo BE, thay bằng email Google đã đăng nhập và đang hoạt động. Không có
+trong repo BE, thay bằng email tài khoản đã tạo và đang hoạt động. Không có
 Admin mặc định; React từ chối vào quản trị nếu chưa được cấp role.
 
 ### Google báo `401 invalid_client` / `no registered origin`
@@ -71,7 +86,7 @@ Tài liệu chính thức: [Google Web Setup](https://developers.google.com/iden
 
 ## Admin trên Android dùng cùng BE
 
-Cùng tài khoản Google đã cấp `role=admin` có thể quản trị cả trên Android và web.
+Cùng tài khoản email hoặc Google đã cấp `role=admin` có thể quản trị cả trên Android và web.
 Android mở cổng quản trị khi đăng nhập tài khoản Admin; có thể chọn về ứng dụng
 sức khỏe, sau đó mở lại qua **Tài khoản → Quản trị viên → Mở quản trị**.
 Màn quản trị đọc lại `/auth/me` và dùng `/admin/*`; BE quyết định quyền ở từng

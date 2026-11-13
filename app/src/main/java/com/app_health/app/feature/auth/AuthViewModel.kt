@@ -14,7 +14,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class AuthUiState(val busy: Boolean = false, val error: String? = null)
+data class AuthUiState(val busy: Boolean = false, val error: String? = null,
+    val account: ApiUser? = null, val message: String? = null)
 
 class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     val authState = repository.state
@@ -22,6 +23,43 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     private val mutableUiState = MutableStateFlow(AuthUiState())
     val uiState = mutableUiState.asStateFlow()
     private var identityRefresh: Job? = null
+
+    fun clearFeedback() { if (!mutableUiState.value.busy) mutableUiState.value = AuthUiState() }
+
+    fun signInEmail(email: String, password: String) = credentials { repository.signInEmail(email, password) }
+    fun register(email: String, password: String, fullName: String) = credentials { repository.register(email, password, fullName) }
+
+    fun loadAccount(ownerId: Long) = credentials { repository.account(ownerId) }
+
+    fun updatePassword(ownerId: Long, current: String?, next: String) = credentials("Đã lưu mật khẩu.") {
+        repository.updatePassword(ownerId, current, next)
+        repository.account(ownerId)
+    }
+
+    fun linkGoogle(ownerId: Long, context: Context) = credentials("Đã liên kết Google với tài khoản hiện tại.") {
+        repository.linkGoogle(ownerId, context)
+    }
+
+    private fun credentials(message: String? = null, operation: suspend () -> Any?) {
+        if (mutableUiState.value.busy) return
+        val previousAccount = mutableUiState.value.account
+        mutableUiState.value = AuthUiState(busy = true, account = previousAccount)
+        viewModelScope.launch {
+            try {
+                val result = operation()
+                mutableUiState.value = AuthUiState(account = result as? ApiUser, message = message)
+            } catch (cancelled: CancellationException) {
+                mutableUiState.value = AuthUiState()
+                throw cancelled
+            } catch (_: GetCredentialCancellationException) {
+                mutableUiState.value = AuthUiState(account = previousAccount)
+            } catch (_: GetCredentialException) {
+                mutableUiState.value = AuthUiState(account = previousAccount, error = "Không liên kết được Google. Kiểm tra tài khoản và cấu hình Google.")
+            } catch (error: Exception) {
+                mutableUiState.value = AuthUiState(account = previousAccount, error = error.toUserMessage())
+            }
+        }
+    }
 
     /** Re-read BE role after returning to the app or reloading Account; coalesce callers. */
     fun refreshIdentity() {

@@ -1,6 +1,22 @@
 # Hướng dẫn vào UI và thực hành theo từng task
 
-Cập nhật: **08/11/2026**. Dành cho học sinh dùng bản chính của AppHealth.
+Cập nhật: **13/11/2026**. Dành cho học sinh dùng bản chính của AppHealth.
+
+Lịch mới có **32 task FE/BE**, xem [bảng mã BL, lịch dự kiến và cách vào từng UI](SPRINT_AUDIT_20261113.md).
+Phần đánh số 1–16 phía dưới giữ mã của danh sách FE cũ để tiện đối chiếu.
+
+### Login/Register mới — S1-BL02-FE / S1-BL03-BE
+
+Màn đầu Android → Chưa có tài khoản? Đăng ký → nhập tên, email, mật khẩu 8–128 ký tự
+và nhập lại → Đăng ký. Có tài khoản thì nhập email/mật khẩu → Đăng nhập. Nút Tiếp tục
+với Google vẫn dùng được. Tài khoản email không cần cấu hình Google để đăng nhập.
+
+Trong Tài khoản → Bảo mật tài khoản: Google-only thêm mật khẩu; tài khoản email
+liên kết Google cùng email sau khi đăng nhập. Hai cách đã liên kết dùng cùng hồ sơ,
+quyền và nhật ký. Chỉ trùng email chưa đủ để tự gộp. Không có màn quên mật khẩu.
+
+Admin Android/web đăng nhập email hoặc Google đã liên kết, với role do giáo viên
+cấp tại BE. Web không mở đăng ký Admin; Google chưa cấu hình vẫn dùng được form email.
 
 Tài liệu dùng đúng tên nút/màn trong source hiện tại. Đây là hướng dẫn thao tác,
 không phải xác nhận rằng Google, camera và AI đã được kiểm thử trên mọi máy học sinh.
@@ -27,7 +43,7 @@ Nếu máy đang đặt tên hai thư mục là `frontend` và `backend`, hãy �
 tương ứng; tên thư mục trên máy không bắt buộc giống tên trên GitHub.
 
 **Admin Android và React Admin web cùng được giữ lại.** Cả hai dùng cùng tài khoản
-Google, quyền `admin` và database thông qua BE. Sau khi cấp quyền, đăng nhập lại
+email hoặc Google đã liên kết, quyền `admin` và database thông qua BE. Sau khi cấp quyền, đăng nhập lại
 Android để mở cổng quản trị; có thể bấm **Về ứng dụng** để sử dụng phần sức khỏe.
 Từ phần sức khỏe, mở lại qua **Tài khoản → Quản trị viên → Mở quản trị**.
 
@@ -38,10 +54,10 @@ Từ phần sức khỏe, mở lại qua **Tài khoản → Quản trị viên �
 1. Pull bản FE và BE mới nhất trong **từng repo riêng**: `git pull origin main`.
 2. BE đã được cấu hình database và migration theo hướng dẫn giáo viên, đang chạy
    và truy cập được `/health`. Xem [README backend](https://github.com/ngocly2005/App_Heathy_BE/blob/main/README.md).
-3. Android đã có Web OAuth Client ID đúng và địa chỉ BE trong `local.properties`;
-   package/SHA-1 của máy đã đăng ký Google. Xem [hướng dẫn cấu hình](SETUP.md).
+3. Android có địa chỉ BE trong `local.properties`. Nếu dùng Google, cần Web OAuth
+   Client ID đúng và package/SHA-1 đã đăng ký. Xem [hướng dẫn cấu hình](SETUP.md).
 4. Mở root repo FE bằng Android Studio, đồng bộ Gradle rồi Run module `app`.
-5. Bấm **Tiếp tục với Google**, chọn tài khoản Google của mình.
+5. Đăng ký/đăng nhập **email/mật khẩu**, hoặc bấm **Tiếp tục với Google**.
 6. Vào **Tài khoản → Hồ sơ thể chất → Thiết lập** để lưu hồ sơ lần đầu.
 
 Địa chỉ BE khác nhau theo nơi chạy UI:
@@ -72,11 +88,11 @@ Trước khi thêm dữ liệu, kiểm tra ngày đang chọn. Màn Cân nặng 
 
 ### 3.1. Chuẩn bị tài khoản Admin: giáo viên thực hiện
 
-1. Tài khoản muốn làm Admin cần **đăng nhập Google trên Android ít nhất một lần**
+1. Tài khoản muốn làm Admin cần **đăng ký email hoặc đăng nhập Google ít nhất một lần**
    với BE đang dùng, để tài khoản tồn tại trong database.
 2. Mở **Terminal mới** trong root repo `App_Heathy_BE`. Dùng cùng môi trường Python
    và cùng cấu hình database với BE đang phục vụ app. Giữ Terminal server đang chạy.
-3. Chạy lệnh sau, **thay email ví dụ bằng email Google thực tế**:
+3. Chạy lệnh sau, **thay email ví dụ bằng email tài khoản thực tế**:
 
    ```powershell
    python -m app.admin_setup --email "email-google-cua-ban@gmail.com"
@@ -93,22 +109,22 @@ Trước khi thêm dữ liệu, kiểm tra ngày đang chọn. Màn Cân nặng 
 4. Thành công sẽ có thông báo dạng:
 
    ```text
-   Admin granted to user ID ... Sign in again in React Admin.
+   Admin granted to user ID ... Reload Account or sign in again on Android/web.
    ```
 
-Lệnh chỉ cấp quyền cho tài khoản Google **đã tồn tại, đang hoạt động**. Nếu báo
-`Sign in with Google first using an active account`, kiểm tra email, trạng thái
-tài khoản và việc Terminal đang dùng đúng database. Đăng nhập Google không tự cấp Admin.
+Lệnh chỉ cấp quyền cho tài khoản **đã tồn tại, đang hoạt động**. Nếu báo
+`Register or sign in first using an active account`, kiểm tra email, trạng thái
+tài khoản và việc Terminal đang dùng đúng database. Đăng ký/đăng nhập không tự cấp Admin.
 
 ### 3.1.1. Mở Admin ngay trên Android
 
-1. Sau khi được cấp quyền, đăng xuất và đăng nhập lại Google trên app Android.
+1. Sau khi được cấp quyền, đăng xuất và đăng nhập lại bằng email hoặc Google trên app Android.
    Cổng **Quản trị AppHealth** mở với tài khoản có role `admin` từ BE.
 2. Nếu đang ở giao diện sức khỏe: **Tài khoản → Quản trị viên → Mở quản trị**.
    Nếu vừa được đổi role trong DB, bấm **Tải lại** ở Tài khoản để cập nhật quyền.
 3. Chọn **Tổng quan**, **Người dùng**, **Thực phẩm**, **Bài tập** hoặc **Lịch sử AI**.
    Các mục đọc dữ liệu thật từ cùng API với web. Có bộ lọc và phân trang trong danh sách.
-4. **Về ứng dụng** quay lại giao diện sức khỏe; **Đăng xuất** thoát tài khoản Google
+4. **Về ứng dụng** quay lại giao diện sức khỏe; **Đăng xuất** thoát tài khoản
    của ứng dụng. Đăng xuất Android và web là các phiên riêng của cùng tài khoản.
 5. Khi quyền bị thu hồi, BE từ chối yêu cầu quản trị. App loại dữ liệu Admin khỏi
    giao diện khi nhận từ chối/xác nhận role mới; tài khoản không có role Admin không
@@ -164,7 +180,7 @@ Hai UI không tự cập nhật thời gian thực từ màn hình của nhau.
 2. Giữ Terminal này mở. Trên trình duyệt của máy đó, vào:
 
    **<http://127.0.0.1:5173>**
-3. Tại **Cổng quản trị**, bấm đăng nhập Google, chọn **đúng email đã cấp Admin**.
+3. Tại **Cổng quản trị**, nhập email/mật khẩu hoặc bấm Google, dùng **đúng tài khoản đã cấp Admin**.
 4. Nếu đã mở phiên trước khi cấp quyền, đăng xuất rồi đăng nhập lại.
 5. Đăng nhập thành công sẽ thấy trang **Tổng quan AppHealth** và menu quản trị.
    Nếu menu bị thu gọn, bấm biểu tượng **☰** để mở.

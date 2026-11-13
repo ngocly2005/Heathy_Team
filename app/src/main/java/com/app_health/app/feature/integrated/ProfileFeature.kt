@@ -98,7 +98,7 @@ fun ProfileScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                         style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text(user?.email ?: "", color = Muted, style = MaterialTheme.typography.bodyMedium)
                     Surface(shape = RoundedCornerShape(16.dp), color = PaleMint) {
-                        Text(if (user?.role == "admin") "Quản trị viên" else "Đăng nhập bằng Google",
+                        Text(if (user?.role == "admin") "Quản trị viên" else "Tài khoản AppHealth",
                             Modifier.padding(horizontal = 11.dp, vertical = 6.dp), color = Mint, style = MaterialTheme.typography.labelMedium)
                     }
                 }
@@ -172,6 +172,10 @@ fun ProfileScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             Spacer(Modifier.width(12.dp))
             Text("Cài đặt mục tiêu dinh dưỡng", Modifier.weight(1f))
             Icon(Icons.Default.ChevronRight, null)
+        }
+        OutlinedButton(onClick = { navigate("security") }, enabled = !state.busy,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp), shape = RoundedCornerShape(22.dp)) {
+            Icon(Icons.Default.Lock, null); Spacer(Modifier.width(9.dp)); Text("Bảo mật tài khoản")
         }
         OutlinedButton(onClick = {
             if (!loggingOut) {

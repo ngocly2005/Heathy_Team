@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.app_health.app.BuildConfig
 import com.app_health.app.core.network.ApiFailure
+import com.app_health.app.core.network.SessionRequestTag
 import com.app_health.app.core.network.toUserMessage
 import com.app_health.app.core.session.AuthState
 import com.app_health.app.core.session.SessionStore
@@ -77,7 +78,7 @@ class AuthRepository internal constructor(
         }
     }
 
-    suspend fun signInWithGoogle(activityContext: Context) = operations.withLock {
+    private suspend fun googleToken(activityContext: Context): String {
         if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) {
             throw ApiFailure(503, "Chưa cấu hình GOOGLE_WEB_CLIENT_ID trong local.properties.")
         }
@@ -89,15 +90,50 @@ class AuthRepository internal constructor(
         if (credential !is CustomCredential || credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
             throw ApiFailure(400, "Không nhận được tài khoản Google hợp lệ.")
         }
-        val googleToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
+        return GoogleIdTokenCredential.createFrom(credential.data).idToken
+    }
+
+    suspend fun signInWithGoogle(activityContext: Context) = operations.withLock {
         // Google ID token is sent once to /auth/google and is never persisted or logged.
-        val pair = rawApi.google(GoogleLoginRequest(googleToken))
+        acceptSession(rawApi.google(GoogleLoginRequest(googleToken(activityContext))))
+    }
+
+    suspend fun signInEmail(email: String, password: String) = operations.withLock {
+        acceptSession(rawApi.login(EmailLoginRequest(email.trim(), password)))
+    }
+
+    suspend fun register(email: String, password: String, fullName: String) = operations.withLock {
+        acceptSession(rawApi.register(RegisterRequest(email.trim(), password, fullName.trim())))
+    }
+
+    private fun owner(expectedId: Long): SessionRequestTag {
+        if (sessions.snapshot()?.user?.id != expectedId) throw ApiFailure(409, "Phiên tài khoản đã thay đổi.")
+        return SessionRequestTag(expectedId)
+    }
+
+    suspend fun account(expectedId: Long): ApiUser = operations.withLock {
+        authenticatedApi.me(owner = owner(expectedId))
+    }
+
+    suspend fun updatePassword(expectedId: Long, current: String?, next: String) = operations.withLock {
+        authenticatedApi.password(owner(expectedId), PasswordUpdateRequest(current, next))
+    }
+
+    suspend fun linkGoogle(expectedId: Long, activityContext: Context): ApiUser = operations.withLock {
+        val tag = owner(expectedId)
+        val user = authenticatedApi.linkGoogle(tag, GoogleLoginRequest(googleToken(activityContext)))
+        if (user.id != expectedId) throw ApiFailure(502, "Máy chủ trả về tài khoản khác.")
+        withContext(Dispatchers.IO) { sessions.updateUser(user.toSessionUser(), expectedId) }
+        user
+    }
+
+    private suspend fun acceptSession(pair: TokenPair) {
         if (pair.accessToken.isNullOrBlank() || pair.refreshToken.isNullOrBlank()) {
             throw ApiFailure(502, "Máy chủ trả về phiên chưa đầy đủ.")
         }
         try {
             val user = rawApi.me("Bearer ${pair.accessToken}").toSessionUser()
-            // Keep existing physical-profile values. Never create a local password account.
+            // Keep physical-profile values. Passwords are verified by BE and never stored locally.
             SharedDataStoreProvider.get(context, user.email).edit { preferences ->
                 preferences[stringPreferencesKey("key_name")] = user.fullName
                 preferences[stringPreferencesKey("key_email")] = user.email
