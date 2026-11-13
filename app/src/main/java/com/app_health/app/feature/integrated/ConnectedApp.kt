@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -63,7 +64,7 @@ private fun ConnectedShell(vm: AppViewModel, onOpenAdmin: () -> Unit, onRefreshI
     val state by vm.state.collectAsState()
     val current = features.firstOrNull { it.route == route }
     val busy = state.busy || authBusy
-    val branded = route in setOf("home", "diary", "meals", "profile")
+    val branded = route in setOf("home", "diary", "meals", "profile", "macros")
     LaunchedEffect(route) {
         vm.enter(route)
         if (route == "profile") onRefreshIdentity()
@@ -81,6 +82,10 @@ private fun ConnectedShell(vm: AppViewModel, onOpenAdmin: () -> Unit, onRefreshI
             }
         } else TopAppBar(title = { Text(current?.title ?: "AppHealth") }, actions = {
             TextButton(onClick = { vm.refresh(); onRefreshIdentity() }, enabled = !state.loading && !busy) { Text("Tải lại") }
+        }, navigationIcon = {
+            if (route in setOf("food", "activity")) IconButton(enabled = !busy, onClick = {
+                route = features.firstOrNull()?.route ?: "home"
+            }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại") }
         })
     }, bottomBar = {
         if(features.any{it.route=="diary"}) AppBottomNavigation(enabled = !busy,

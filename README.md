@@ -17,9 +17,13 @@ gồm cách mở/đăng nhập React Admin (task 5/11/16) và chat AI (task 12).
 
 ## Bản chạy chính
 
+Giao diện các màn có trong 17 ảnh Figma đã được cập nhật ngày 13/11/2026.
+Xem [bảng đối chiếu và các chi tiết thiết kế được bỏ qua](docs/UI_FIGMA_20261113.md).
+
 `MainActivity` mở `feature/integrated/ConnectedApp.kt`. Các màn đã nối API dùng
 ViewModel và ngày chung, không ghi nhật ký sức khỏe vào SharedPreferences.
-Giữ theme, thanh điều hướng, tiến độ calo, thẻ nước và lịch tuần từ UI hiện có.
+Dùng giao diện theo ảnh xuất ở các màn đã đối chiếu; giữ chức năng điều hướng,
+tiến độ calo, thẻ nước và lịch tuần.
 Admin Android dùng `feature/adminconnected`, Google/session và các API Admin BE
 giống React Admin web. Tài khoản `admin` vào cổng quản trị khi đăng nhập; từ giao
 diện sức khỏe có thể mở lại tại Tài khoản → Quản trị viên → Mở quản trị.

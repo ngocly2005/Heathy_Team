@@ -1,6 +1,9 @@
 package com.app_health.app.feature.integrated
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.app_health.app.feature.home.components.AddCameraFood.AddFoodBottomSheet
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -34,69 +37,71 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
     var time by rememberSaveable(state.date) { mutableStateOf("") }
     var note by rememberSaveable(state.date, day?.diary?.content) { mutableStateOf(day?.diary?.content ?: "") }
     var mood by rememberSaveable(state.date, day?.diary?.mood) { mutableStateOf(day?.diary?.mood ?: "") }
+    var addSheet by rememberSaveable(state.date) { mutableStateOf(false) }
     var waterDetails by rememberSaveable(state.date) { mutableStateOf(false) }
     val enabled = !state.busy && !state.loading && !state.uncertain
     val largeText = LocalDensity.current.fontScale > 1.3f
 
-    HealthPage {
-        HealthHeader("Nhật ký", "Ghi lại hành trình sức khỏe của bạn", Icons.Default.CalendarMonth, illustrated = true)
-        DateStrip(vm)
+    FigmaPage {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(enabled = enabled, onClick = { vm.chooseDate(state.date.minusDays(1)) }) { Icon(Icons.Default.ChevronLeft, "Ngày trước") }
+            TextButton(enabled = !state.busy, onClick = { navigate("calendar") }, modifier = Modifier.weight(1f)) {
+                Text(if (state.date == LocalDate.now()) "Hôm nay" else uiDate(state.date.toString()),
+                    color = FigmaInk, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                Icon(Icons.Default.CalendarMonth, "Chọn ngày", Modifier.padding(start = 6.dp).size(18.dp))
+            }
+            IconButton(enabled = enabled && state.date < LocalDate.now(), onClick = { vm.chooseDate(state.date.plusDays(1)) }) { Icon(Icons.Default.ChevronRight, "Ngày sau") }
+        }
         if (day == null) {
-            HealthCard {
+            FigmaCard {
                 Text(if (state.loading) "Đang tải nhật ký…" else "Chưa tải được dữ liệu ngày đã chọn.", color = Muted)
                 if (!state.loading) OutlinedButton(onClick = { vm.refresh() }, enabled = !state.busy) { Text("Thử tải lại") }
             }
         } else {
-            HealthCard(title = if (state.date == LocalDate.now()) "Tổng quan ngày hôm nay" else "Tổng quan ngày ${uiDate(state.date.toString())}") {
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    if (largeText) {
-                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            StatMetric("Đã ăn", day.dashboard.calories_consumed.display(), "kcal", Icons.Default.Restaurant)
-                            StatMetric("Vận động", day.dashboard.calories_burned.display(), "kcal", Icons.Default.DirectionsRun)
-                            StatMetric("Nước uống", day.dashboard.water_ml.toString(), "ml", Icons.Default.WaterDrop)
+            FigmaMacroStrip(state) { navigate("macros") }
+            day.weight?.let { Text("Số đo ngày này: ${it.weight_kg.display()} kg", color = FigmaMuted, style = MaterialTheme.typography.bodySmall) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Món ăn", Modifier.weight(1f), color = FigmaInk, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                FilledTonalButton(enabled = enabled, onClick = { addSheet = true }) { Icon(Icons.Default.Add, null); Text("Thêm bữa ăn") }
+            }
+            if (day.dashboard.food_logs.isEmpty()) FigmaCard {
+                UiEmptyState(Icons.Default.Restaurant, "Chưa có món ăn trong ngày", "Chọn món hoặc chụp ảnh bữa ăn.",
+                    "Thêm bữa ăn", enabled) { addSheet = true }
+            } else {
+                val groups = day.dashboard.food_logs.sortedWith(compareBy<FoodLogDto> { it.meal_time ?: "99:99" }.thenBy { it.id })
+                    .groupBy { it.meal_time?.take(2) }
+                groups.forEach { (hour, foods) ->
+                    FigmaCard {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(hour?.let { "$it:00" } ?: "Chưa có giờ ăn", Modifier.weight(1f), color = FigmaInk, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.LocalFireDepartment, null, tint = Color(0xFFFF9147), modifier = Modifier.size(15.dp))
+                            Text("${foods.sumOf { it.calories_kcal }.uiNumber()} kcal", color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
                         }
-                    } else if (maxWidth < 300.dp) {
-                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                StatMetric("Đã ăn", day.dashboard.calories_consumed.display(), "kcal", Icons.Default.Restaurant, Modifier.weight(1f))
-                                StatMetric("Vận động", day.dashboard.calories_burned.display(), "kcal", Icons.Default.DirectionsRun, Modifier.weight(1f))
+                    }
+                    foods.forEach { food ->
+                        FigmaCard {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Surface(color = Color(0xFFF5F6F8), shape = RoundedCornerShape(12.dp)) {
+                                    Icon(Icons.Default.RamenDining, null, Modifier.padding(12.dp).size(24.dp), tint = Color(0xFFE6A24A))
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(food.food_name, color = FigmaInk, fontWeight = FontWeight.Bold)
+                                    Text("${food.grams.uiNumber()} g • ${food.calories_kcal.uiNumber()} kcal", color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
+                                    Text("P ${food.protein_g.uiNumber()} g • C ${food.carb_g.uiNumber()} g • F ${food.fat_g.uiNumber()} g", color = FigmaMuted, style = MaterialTheme.typography.labelSmall)
+                                    val mealLabel = mealChoices.firstOrNull { it.first == food.meal_type }?.second ?: food.meal_type
+                                    Text("$mealLabel${food.meal_time?.let { " • $it" } ?: ""}", color = FigmaMuted, style = MaterialTheme.typography.labelSmall)
+                                }
                             }
-                            StatMetric("Nước uống", day.dashboard.water_ml.toString(), "ml", Icons.Default.WaterDrop)
+                            UiEntryActions(enabled, onEdit = {
+                                itemId = food.id; amount = uiEditNumber(food.grams); meal = food.meal_type
+                                time = food.meal_time ?: ""; editing = "food"
+                            }, onDelete = { itemId = food.id; deleting = "food" })
                         }
-                    } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        StatMetric("Đã ăn", day.dashboard.calories_consumed.display(), "kcal", Icons.Default.Restaurant, Modifier.weight(1f))
-                        StatMetric("Vận động", day.dashboard.calories_burned.display(), "kcal", Icons.Default.DirectionsRun, Modifier.weight(1f))
-                        StatMetric("Nước uống", day.dashboard.water_ml.toString(), "ml", Icons.Default.WaterDrop, Modifier.weight(1f))
-                    }
-                }
-                day.weight?.let { Text("Số đo ngày này: ${it.weight_kg.display()} kg", color = Muted, style = MaterialTheme.typography.bodySmall) }
-            }
-
-            HealthCard(title = "Món ăn", actionLabel = if (!state.busy) "Thêm món" else null, onAction = { navigate("food") }) {
-                if (day.dashboard.food_logs.isEmpty()) {
-                    UiEmptyState(Icons.Default.Restaurant, "Chưa có món ăn trong ngày", "Thêm món ăn để theo dõi dinh dưỡng.",
-                        "Thêm món ăn", enabled) { navigate("food") }
-                } else {
-                    day.dashboard.food_logs.sortedWith(compareBy<FoodLogDto> { it.meal_time ?: "99:99" }.thenBy { it.id }).forEachIndexed { index, food ->
-                        if (index > 0) HorizontalDivider(color = Border)
-                        Text(food.food_name, color = Ink, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
-                        val mealLabel = mealChoices.firstOrNull { it.first == food.meal_type }?.second ?: food.meal_type
-                        Text("$mealLabel${food.meal_time?.let { " • $it" } ?: ""} • ${food.grams.display()} g", color = Muted)
-                        Text("${food.calories_kcal.display()} kcal", color = Mint, fontWeight = FontWeight.Bold)
-                        Text("Protein ${food.protein_g.display()} g • Carb ${food.carb_g.display()} g • Fat ${food.fat_g.display()} g",
-                            color = Muted, style = MaterialTheme.typography.bodySmall)
-                        UiEntryActions(enabled, onEdit = {
-                            itemId = food.id; amount = uiEditNumber(food.grams); meal = food.meal_type
-                            time = food.meal_time ?: ""; editing = "food"
-                        }, onDelete = { itemId = food.id; deleting = "food" })
-                    }
-                    OutlinedButton(onClick = { navigate("food") }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Thêm món ăn")
                     }
                 }
             }
 
-            HealthCard(title = "Vận động", actionLabel = if (!state.busy) "Thêm" else null, onAction = { navigate("activity") }) {
+            FigmaCard(title = "Vận động", actionLabel = if (!state.busy) "Thêm" else null, onAction = { navigate("activity") }) {
                 if (day.dashboard.activity_logs.isEmpty()) {
                     UiEmptyState(Icons.Default.FitnessCenter, "Chưa có hoạt động nào", "Ghi lại bài tập để theo dõi năng lượng vận động.",
                         "Thêm vận động", enabled) { navigate("activity") }
@@ -115,7 +120,7 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             val water = state.water
             val target = water?.effective_target_ml
             val total = day.dashboard.water_ml
-            HealthCard(title = "Nước uống", actionLabel = if (day.water_logs.isNotEmpty()) if (waterDetails) "Thu gọn" else "Chi tiết" else null,
+            FigmaCard(title = "Nước uống", actionLabel = if (day.water_logs.isNotEmpty()) if (waterDetails) "Thu gọn" else "Chi tiết" else null,
                 onAction = { waterDetails = !waterDetails }) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     UiIllustration(Icons.Default.WaterDrop)
@@ -153,7 +158,7 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                 }
             }
 
-            HealthCard(title = "Ghi chú & tâm trạng") {
+            FigmaCard(title = "Ghi chú & tâm trạng") {
                 OutlinedTextField(note, { note = it.take(10000) }, label = { Text("Hôm nay bạn có gì đặc biệt?") },
                     enabled = enabled, minLines = 3, maxLines = 6, modifier = Modifier.fillMaxWidth())
                 Text("Tâm trạng hôm nay", color = Ink, fontWeight = FontWeight.SemiBold)
@@ -177,6 +182,10 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             }
         }
     }
+
+    if (addSheet) AddFoodBottomSheet(onDismiss = { addSheet = false },
+        onNavigateToSelectFood = { addSheet = false; navigate("food") },
+        onNavigateToCaptureFood = { addSheet = false; navigate("photo") })
 
     editing?.let { kind ->
         val number = inputNumber(amount)

@@ -1,5 +1,28 @@
 # Kiểm chứng tích hợp
 
+## 2026-11-13 — Đối chiếu 17 ảnh Figma, chỉ đổi cách trình bày
+
+- Android: 75 JVM tests thành công, APK và lintDebug thành công; 0 Error/Fatal,
+  113 Warning và 2 Hint trong toàn project. Cảnh báo mới `ModifierParameter`
+  ở helper giao diện chỉ liên quan thứ tự tham số tùy chọn, không chặn build.
+- Rà soát riêng các phần ngày chọn, tiến độ calo, nhập khẩu phần, profile,
+  mục tiêu và sửa/xóa nhật ký: giữ API, payload, công thức, validation và các
+  chốt busy/loading/uncertain. Giữ đủ Chat AI, Admin theo quyền BE và bảo mật.
+- 10 preview Compose dựng thành công và đã xem ảnh: Home ngắn/dài, Diary có
+  món/rỗng, Profile có hồ sơ/rỗng, Macro dài, Food, Exercise, Login. Diary rỗng
+  được dựng ở 320dp/chữ 150%; các khối đa lượng chuyển dọc và thanh dưới xuống
+  dòng. 22 file UI trong fixture trùng từng byte và SHA-256 với source thật.
+- Fixture tách khỏi repo sản phẩm, dùng Layoutlib và trạng thái/API mẫu chặn
+  mạng. Không thêm dependency render vào app. Ảnh không bao gồm shell bên ngoài,
+  dialog hoặc tương tác mở trang con; không nhận là kiểm thử emulator, Google,
+  đăng ký/đăng nhập thật hay thao tác lưu/xóa với máy chủ.
+- Từ ảnh xuất có thể đối chiếu bố cục/màu/nhóm nội dung, chưa đo trực tiếp từng
+  node Figma. Xem [bảng áp dụng và chi tiết bỏ qua](UI_FIGMA_20261113.md).
+- Không đổi BE, React Admin web, API hay migration nên không chạy lại bộ BE/web
+  trong đợt UI này. Không upgrade database thật. Lượt build đầu phát hiện thiếu
+  import Color ở Profile, đã sửa và build lại; đồng thời sửa tiêu đề dinh dưỡng
+  để tránh hai nút quay lại trong shell. Bản cuối được kiểm tra lại sau chỉnh sửa.
+
 ## 2026-11-13 — Rà soát 32 task, email/mật khẩu song song Google
 
 - Android: 75 JVM tests thành công, APK và lintDebug thành công, không có Error/Fatal.

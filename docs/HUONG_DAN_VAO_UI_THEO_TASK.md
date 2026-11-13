@@ -58,7 +58,7 @@ Từ phần sức khỏe, mở lại qua **Tài khoản → Quản trị viên �
    Client ID đúng và package/SHA-1 đã đăng ký. Xem [hướng dẫn cấu hình](SETUP.md).
 4. Mở root repo FE bằng Android Studio, đồng bộ Gradle rồi Run module `app`.
 5. Đăng ký/đăng nhập **email/mật khẩu**, hoặc bấm **Tiếp tục với Google**.
-6. Vào **Tài khoản → Hồ sơ thể chất → Thiết lập** để lưu hồ sơ lần đầu.
+6. Vào **Tài khoản → Cập nhật chỉ số** để lưu hồ sơ lần đầu.
 
 Địa chỉ BE khác nhau theo nơi chạy UI:
 
@@ -252,7 +252,7 @@ thông báo BE; Admin có thể xem bản ghi tại task 16.
 
 | Task | Sprint | Tính năng | Vào UI hiện tại |
 |---|---|---|---|
-| **1** | S1-T01 | Hồ sơ, BMI/TDEE | Android → **Tài khoản → Hồ sơ thể chất → Thiết lập/Chỉnh sửa** |
+| **1** | S1-T01 | Hồ sơ, BMI/TDEE | Android → **Tài khoản → Cập nhật chỉ số** |
 | **2** | S1-T02 | Tổng ngày và tiến độ calo | Android → **Trang chủ → Calo còn lại** |
 | **3** | S1-T03 | Camera và upload ảnh | Android → **Trang chủ → Chụp món ăn**; hoặc **+ → Chụp ảnh món ăn** |
 | **4** | S1-T04 | Tìm món và chỉnh khẩu phần | Android → **Trang chủ → Tìm món ăn**; hoặc **+ → Chọn món ăn thủ công** |
@@ -275,17 +275,17 @@ cũng có trong **Tài khoản**; cuộn xuống để thấy.
 
 ### Task 1 — Hồ sơ và BMI/TDEE
 
-1. Vào **Tài khoản → Hồ sơ thể chất**.
-2. Bấm **Thiết lập** khi chưa có hồ sơ, hoặc **Chỉnh sửa** khi đã có.
+1. Vào **Tài khoản → Cập nhật chỉ số**.
+2. Hoặc vào **Hồ sơ thể chất → Chỉnh sửa thông tin** để mở cùng form.
 3. Chọn ngày sinh, giới tính; nhập chiều cao bằng **cm**, cân nặng bằng **kg**;
    chọn mức vận động và mục tiêu.
-4. Khi nhập hợp lệ, hộp thoại hiện kết quả tính trước khi lưu. Bấm **Lưu hồ sơ**.
-5. Kiểm tra BMI/TDEE trong **Chỉ số sức khỏe nhanh**; rời màn rồi mở lại để đối chiếu.
+4. Khi nhập hợp lệ, phần xem trước hiện BMI/BMR/TDEE. Bấm **Lưu thay đổi**.
+5. Kiểm tra dải **BMI / TDEE / Cân nặng** trên hồ sơ; rời màn rồi mở lại để đối chiếu.
 
 ### Task 2 — Tiến độ calo trong ngày
 
 1. Mở **Trang chủ**, chọn đúng ngày trên lịch tuần.
-2. Xem **Calo còn lại**, mục tiêu, **Tiến độ đã ăn**, tổng **Đã ăn** và **Vận động**.
+2. Xem vòng **Calo còn lại**, lượng đã ăn/mục tiêu, các thẻ **Đã nạp** và **Tập luyện**.
 3. Thêm một món bằng task 4, quay lại Trang chủ để kiểm tra tổng thay đổi.
 
 Thanh tiến độ = lượng **đã ăn / mục tiêu**. Calo còn lại = **mục tiêu − đã ăn + vận động**.
@@ -313,7 +313,7 @@ không có camera dùng được, chọn ảnh từ thư viện để thực hà
 
 ### Task 6 — Dinh dưỡng và tỷ lệ macro
 
-1. Vào **Dinh dưỡng** hoặc bấm **Chi tiết** trên thẻ **Tổng quan dinh dưỡng** ở Trang chủ.
+1. Vào **Dinh dưỡng** hoặc bấm **Chi tiết dinh dưỡng** trên thẻ ba chất ở Trang chủ.
 2. Chọn ngày, xem thanh Protein/Carb/Fat và biểu đồ tỷ lệ năng lượng.
 3. Ở **Tùy chỉnh mục tiêu**, nhập các mục tiêu muốn dùng; tổng phần trăm ba chất
    phải bằng **100%** để lưu. Cân nặng mục tiêu là trường không bắt buộc.

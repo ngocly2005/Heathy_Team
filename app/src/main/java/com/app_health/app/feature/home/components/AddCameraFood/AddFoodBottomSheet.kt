@@ -50,11 +50,9 @@ fun AddFoodBottomSheet(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .heightIn(min = 48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                Icon(Icons.Default.Search, contentDescription = "Tìm kiếm")
-                Spacer(modifier = Modifier.width(12.dp))
                 Text("Chọn món ăn thủ công", fontSize = 16.sp)
             }
 
@@ -68,10 +66,10 @@ fun AddFoodBottomSheet(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .heightIn(min = 48.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(containerColor = androidx.compose.ui.graphics.Color(0xFFE9E0F7),
+                    contentColor = androidx.compose.ui.graphics.Color(0xFF232D3C))
             ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = "Máy ảnh")
-                Spacer(modifier = Modifier.width(12.dp))
                 Text("Chụp ảnh món ăn", fontSize = 16.sp)
             }
         }

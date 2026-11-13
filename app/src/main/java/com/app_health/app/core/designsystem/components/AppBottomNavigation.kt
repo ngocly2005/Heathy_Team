@@ -43,14 +43,13 @@ fun AppBottomNavigation(
     var showAddSheet by remember { mutableStateOf(false) }
     LaunchedEffect(enabled) { if (!enabled) showAddSheet = false }
     Row(modifier.fillMaxWidth()
-        .shadow(8.dp, RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
         .background(Color.White).navigationBarsPadding().padding(horizontal = 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         NavItem("Trang chủ", Icons.Default.Home, currentRoute == BottomNavRoute.HOME, enabled) { onRouteSelected(BottomNavRoute.HOME) }
         NavItem("Nhật ký", Icons.Default.Restaurant, currentRoute == BottomNavRoute.DIARY, enabled) { onRouteSelected(BottomNavRoute.DIARY) }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             Surface(onClick = { showAddSheet = true }, enabled = enabled, shape = CircleShape,
-                color = AppPrimary, shadowElevation = 4.dp, modifier = Modifier.size(56.dp)) {
+                color = AppPrimary, shadowElevation = 0.dp, modifier = Modifier.size(52.dp)) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Add, "Thêm món ăn", tint = Color.White, modifier = Modifier.size(30.dp)) }
             }
         }
@@ -73,7 +72,6 @@ private fun RowScope.NavItem(title: String, icon: ImageVector, selected: Boolean
         Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
         Text(title, color = color, fontSize = 11.sp, lineHeight = 15.sp, textAlign = TextAlign.Center,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, modifier = Modifier.heightIn(min = 16.dp))
-        Box(Modifier.width(22.dp).height(3.dp).background(if (selected) AppPrimary else Color.Transparent, RoundedCornerShape(2.dp)))
     }
 }
 
