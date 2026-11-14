@@ -20,6 +20,9 @@ gồm cách mở/đăng nhập React Admin (task 5/11/16) và chat AI (task 12).
 Giao diện các màn có trong 17 ảnh Figma đã được cập nhật ngày 13/11/2026.
 Xem [bảng đối chiếu và các chi tiết thiết kế được bỏ qua](docs/UI_FIGMA_20261113.md).
 
+Admin web được đồng bộ phong cách FitChat theo ảnh ngày 14/11/2026;
+xem [các trang và phạm vi áp dụng](docs/ADMIN_WEB_DESIGN_20261114.md).
+
 `MainActivity` mở `feature/integrated/ConnectedApp.kt`. Các màn đã nối API dùng
 ViewModel và ngày chung, không ghi nhật ký sức khỏe vào SharedPreferences.
 Dùng giao diện theo ảnh xuất ở các màn đã đối chiếu; giữ chức năng điều hướng,

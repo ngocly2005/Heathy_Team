@@ -1,5 +1,31 @@
 # Kiểm chứng tích hợp
 
+## 2026-11-14 — Giao diện Admin web theo ảnh FitChat
+
+- 12 tests web thành công; TypeScript và production build thành công. Vẫn còn
+  cảnh báo bundle lớn, không có lỗi build. Không thêm dependency sản phẩm.
+- Kiểm tra trình duyệt cục bộ qua đúng App, authProvider và dataProvider, dùng
+  API giả riêng, không inject phiên hoặc tạo lối bỏ qua auth trong sản phẩm.
+  Có 34 ảnh của 12 route trên desktop 1440px/mobile 390px, các trạng thái trống
+  và lỗi báo cáo. Các bảng cuộn ngang bên trong; không làm tràn toàn trang.
+- 15 kiểm tra tương tác thành công: menu rộng/hẹp/mobile, tìm kiếm/lọc/phân
+  trang, CSV theo bộ lọc, lưu trạng thái user, từ chối khóa Admin, thực phẩm và
+  bài tập create/edit, xác nhận ngừng sử dụng, JSON AI đầy đủ, khoảng ngày,
+  bảng số liệu, logout và từ chối tài khoản thường/bị khóa/mật khẩu sai.
+- Nút CSV được giới hạn rõ 100 dòng để khớp giới hạn API; mặc định 1.000 của
+  React Admin vượt giới hạn. Không thêm endpoint xuất dữ liệu. Không đổi payload
+  user status-only hoặc dữ liệu lưu catalog, quyền vẫn xác định qua BE.
+- Lượt xem đầu phát hiện bảng/bộ lọc tràn mobile, đã sửa track grid và flex của
+  toolbar; bỏ prop end bị truyền xuống DOM (menu đã khớp route gốc chính xác).
+  Bộ kiểm tra ban đầu có bước đọc kết quả trước khi lọc/redirect hoàn tất; đã
+  đồng bộ theo phản hồi và giao diện, giữ kết quả cũ để đối chiếu.
+- Hai phản hồi HTTP 503 trong ảnh lỗi là chủ đích của fixture; không coi là lỗi
+  runtime ngoài dự kiến. Google/provider và database triển khai thật chưa được
+  kiểm thử trong đợt này. Harness chặn mọi kết nối ra ngoài máy cục bộ.
+- Android, BE, migration và chuỗi phát hành cũ giữ nguyên, không chạy lại các bộ
+  kiểm tra không liên quan hoặc upgrade database thật. Xem
+  [các trang thiết kế và phần bỏ qua](ADMIN_WEB_DESIGN_20261114.md).
+
 ## 2026-11-13 — Đối chiếu 17 ảnh Figma, chỉ đổi cách trình bày
 
 - Android: 75 JVM tests thành công, APK và lintDebug thành công; 0 Error/Fatal,
