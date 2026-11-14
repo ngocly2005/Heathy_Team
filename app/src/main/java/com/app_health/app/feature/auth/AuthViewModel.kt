@@ -24,10 +24,25 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     val uiState = mutableUiState.asStateFlow()
     private var identityRefresh: Job? = null
 
-    fun clearFeedback() { if (!mutableUiState.value.busy) mutableUiState.value = AuthUiState() }
+    fun clearFeedback() {
+        if (!mutableUiState.value.busy) mutableUiState.value = mutableUiState.value.copy(error = null, message = null)
+    }
 
-    fun signInEmail(email: String, password: String) = credentials { repository.signInEmail(email, password) }
-    fun register(email: String, password: String, fullName: String) = credentials { repository.register(email, password, fullName) }
+    fun signInEmail(email: String, password: String) {
+        if (!validateCredentials(emailLoginErrors(email, password))) return
+        credentials(errorMessage = ::credentialErrorMessage) { repository.signInEmail(email, password) }
+    }
+    fun register(email: String, password: String, fullName: String) {
+        if (!validateCredentials(registrationErrors(email, fullName, password, password))) return
+        credentials(errorMessage = ::credentialErrorMessage) { repository.register(email, password, fullName) }
+    }
+
+    private fun validateCredentials(errors: CredentialErrors): Boolean {
+        if (mutableUiState.value.busy) return false
+        if (errors.isValid) return true
+        mutableUiState.value = mutableUiState.value.copy(error = errors.messages.first())
+        return false
+    }
 
     fun loadAccount(ownerId: Long) = credentials { repository.account(ownerId) }
 
@@ -40,7 +55,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         repository.linkGoogle(ownerId, context)
     }
 
-    private fun credentials(message: String? = null, operation: suspend () -> Any?) {
+    private fun credentials(message: String? = null, errorMessage: (Exception) -> String = { it.toUserMessage() }, operation: suspend () -> Any?) {
         if (mutableUiState.value.busy) return
         val previousAccount = mutableUiState.value.account
         mutableUiState.value = AuthUiState(busy = true, account = previousAccount)
@@ -56,7 +71,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
             } catch (_: GetCredentialException) {
                 mutableUiState.value = AuthUiState(account = previousAccount, error = "Không liên kết được Google. Kiểm tra tài khoản và cấu hình Google.")
             } catch (error: Exception) {
-                mutableUiState.value = AuthUiState(account = previousAccount, error = error.toUserMessage())
+                mutableUiState.value = AuthUiState(account = previousAccount, error = errorMessage(error))
             }
         }
     }

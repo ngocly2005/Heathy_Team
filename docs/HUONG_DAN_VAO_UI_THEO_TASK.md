@@ -1,6 +1,8 @@
 # Hướng dẫn vào UI và thực hành theo từng task
 
-Cập nhật: **13/11/2026**. Dành cho học sinh dùng bản chính của AppHealth.
+Cập nhật: **14/11/2026**. Dành cho học sinh dùng bản chính của AppHealth.
+
+**Đủ 32 task mới:** [Hướng dẫn UI của 3 sprint](HUONG_DAN_UI_3_SPRINT.md).
 
 Lịch mới có **32 task FE/BE**, xem [bảng mã BL, lịch dự kiến và cách vào từng UI](SPRINT_AUDIT_20261113.md).
 Phần đánh số 1–16 phía dưới giữ mã của danh sách FE cũ để tiện đối chiếu.

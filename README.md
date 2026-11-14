@@ -17,6 +17,9 @@ gồm cách mở/đăng nhập React Admin (task 5/11/16) và chat AI (task 12).
 
 ## Bản chạy chính
 
+Học sinh dùng [hướng dẫn UI đủ 32 task của 3 sprint](docs/HUONG_DAN_UI_3_SPRINT.md)
+để tìm đường vào Android/Admin web và kết quả cần kiểm tra cho từng cặp FE/BE.
+
 Giao diện các màn có trong 17 ảnh Figma đã được cập nhật ngày 13/11/2026.
 Xem [bảng đối chiếu và các chi tiết thiết kế được bỏ qua](docs/UI_FIGMA_20261113.md).
 

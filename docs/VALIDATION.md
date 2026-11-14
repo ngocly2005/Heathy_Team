@@ -1,5 +1,21 @@
 # Kiểm chứng tích hợp
 
+## 2026-11-14 — Validation tài khoản và hướng dẫn 32 task
+
+- Android: 82 JVM tests, APK và lint thành công (không Error/Fatal). Có kiểm tra
+  email, giới hạn độ dài, Unicode, xác nhận mật khẩu, lỗi server không lộ mật
+  khẩu và tương thích mật khẩu đăng nhập cũ.
+- BE: 56 tests HTTP thành công với SQLite trong bộ nhớ, provider giả. Đăng ký
+  không hợp lệ không tạo user/token; mật khẩu mới chỉ khoảng trắng hoặc chứa
+  ký tự điều khiển bị từ chối; mật khẩu đăng nhập cũ vẫn dùng được.
+- Đã xem 5 ảnh từ 5 file UI/theme trùng từng byte: lỗi trong ảnh người dùng,
+  dữ liệu hợp lệ, xác nhận sai, đang gửi, màn 320dp/chữ 150%. Có lỗi tại từng ô,
+  lý do nút chưa bật; không cắt âm thầm tên/email quá dài. Password không được
+  trim hoặc lưu vào Bundle. Xóa feedback giữ thông tin tài khoản đang sửa.
+- HUONG_DAN_UI_3_SPRINT.md phủ đủ 32 mã BL, đường vào và kết quả cần kiểm tra.
+- Chưa thử IME/Google trên thiết bị thật; email cuối cùng do BE kiểm tra cú pháp.
+  Không đổi database, không thêm migration hoặc upgrade thật.
+
 ## 2026-11-14 — Giao diện Admin web theo ảnh FitChat
 
 - 12 tests web thành công; TypeScript và production build thành công. Vẫn còn

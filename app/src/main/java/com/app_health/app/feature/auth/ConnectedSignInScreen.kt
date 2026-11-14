@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalFireDepartment
@@ -23,6 +24,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -42,9 +47,11 @@ private val AuthInk = Color(0xFF232D3C)
 private val AuthAccent = Color(0xFF0DBD88)
 
 @Composable
-fun CredentialPasswordField(label: String, value: String, enabled: Boolean, onChange: (String) -> Unit) {
+fun CredentialPasswordField(label: String, value: String, enabled: Boolean, errorText: String? = null, onChange: (String) -> Unit) {
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(value, onChange, label = { Text(label) }, singleLine = true, enabled = enabled,
+        isError = value.isNotEmpty() && errorText != null,
+        supportingText = errorText?.takeIf { value.isNotEmpty() }?.let { { Text(it) } },
         modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = { IconButton(onClick = { visible = !visible }, enabled = enabled) {
@@ -58,14 +65,25 @@ fun CredentialPasswordField(label: String, value: String, enabled: Boolean, onCh
 private fun AuthEntryField(
     label: String, value: String, enabled: Boolean, icon: ImageVector,
     keyboardType: KeyboardType = KeyboardType.Text, password: Boolean = false,
+    errorText: String? = null, hint: String? = null, forceError: Boolean = false,
+    done: Boolean = false, onDone: () -> Unit = {},
     onChange: (String) -> Unit
 ) {
     var visible by remember { mutableStateOf(false) }
-    TextField(value, onChange, placeholder = { Text(label, color = Muted, fontSize = 13.sp) },
+    var focusedBefore by remember { mutableStateOf(false) }
+    var blurred by remember { mutableStateOf(false) }
+    val showError = errorText != null && (forceError || value.isNotEmpty() || blurred)
+    val focus = LocalFocusManager.current
+    TextField(value, onChange, label = { Text(label, fontSize = 13.sp) }, isError = showError,
+        supportingText = (if (showError) errorText else hint)?.let { message -> { Text(message) } },
         singleLine = true, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-            .semantics { contentDescription = label },
+            .semantics { contentDescription = label }.onFocusChanged {
+                if (it.isFocused) focusedBefore = true else if (focusedBefore) blurred = true
+            },
         shape = RoundedCornerShape(17.dp), textStyle = MaterialTheme.typography.bodyMedium.copy(color = AuthInk),
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, autoCorrectEnabled = false,
+            imeAction = if (done) ImeAction.Done else ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Next) }, onDone = { onDone() }),
         visualTransformation = if (password && !visible) PasswordVisualTransformation() else VisualTransformation.None,
         leadingIcon = { Icon(icon, null, tint = AuthAccent, modifier = Modifier.size(20.dp)) },
         trailingIcon = if (password) {{
@@ -77,6 +95,7 @@ private fun AuthEntryField(
         }} else null,
         colors = TextFieldDefaults.colors(
             focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+            errorContainerColor = Color.White,
             disabledContainerColor = Color.White.copy(alpha = 0.65f), cursorColor = Mint,
             focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
             disabledIndicatorColor = Color.Transparent))
@@ -92,7 +111,24 @@ fun ConnectedSignInScreen(auth: AuthViewModel) {
     // Credentials remain in this composition only, never saved in a Bundle or preferences.
     var password by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
-    val valid = if (registering) validRegistration(email, name, password, confirmation) else validEmailLogin(email, password)
+    CredentialEntryScreen(registering, email, name, password, confirmation, ui.busy, ui.error,
+        onEmailChange = { email = it; auth.clearFeedback() }, onNameChange = { name = it; auth.clearFeedback() },
+        onPasswordChange = { password = it; auth.clearFeedback() }, onConfirmationChange = { confirmation = it; auth.clearFeedback() },
+        onSubmit = { if (registering) auth.register(email, password, name) else auth.signInEmail(email, password) },
+        onSwitch = { registering = !registering; password = ""; confirmation = ""; auth.clearFeedback() },
+        onGoogle = { auth.signIn(context) })
+}
+
+/** Pure presentation also used by offline UI previews; all writes stay in AuthViewModel. */
+@Composable
+fun CredentialEntryScreen(registering: Boolean, email: String, name: String, password: String, confirmation: String,
+    busy: Boolean, error: String?, onEmailChange: (String) -> Unit, onNameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit, onConfirmationChange: (String) -> Unit,
+    onSubmit: () -> Unit, onSwitch: () -> Unit, onGoogle: () -> Unit) {
+    val errors = if (registering) registrationErrors(email, name, password, confirmation) else emailLoginErrors(email, password)
+    var revealErrors by remember(registering) { mutableStateOf(false) }
+    val submit = { if (!busy && errors.isValid) onSubmit() else revealErrors = true }
+    key(registering) {
     Column(Modifier.fillMaxSize()
         .background(Brush.verticalGradient(listOf(Color(0xFFD4EFE6), Color(0xFFF5F6FA))))
         .systemBarsPadding().imePadding().verticalScroll(rememberScrollState())
@@ -109,34 +145,40 @@ fun ConnectedSignInScreen(auth: AuthViewModel) {
             color = Muted, fontSize = 13.sp, lineHeight = 19.sp, textAlign = TextAlign.Center)
         Spacer(Modifier.height(34.dp))
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            if (registering) AuthEntryField("Họ và tên", name, !ui.busy, Icons.Default.Person) { name = it.take(120) }
-            AuthEntryField("Email", email, !ui.busy, Icons.Default.Email, KeyboardType.Email) { email = it.take(320) }
-            AuthEntryField("Mật khẩu", password, !ui.busy, Icons.Default.Lock, KeyboardType.Password, password = true) { password = it }
-            if (registering) AuthEntryField("Xác nhận mật khẩu", confirmation, !ui.busy, Icons.Default.Lock,
-                KeyboardType.Password, password = true) { confirmation = it }
+            if (registering) AuthEntryField("Họ và tên", name, !busy, Icons.Default.Person,
+                errorText = errors.name, forceError = revealErrors, onChange = onNameChange)
+            AuthEntryField("Email", email, !busy, Icons.Default.Email, KeyboardType.Email,
+                errorText = errors.email, forceError = revealErrors, onChange = onEmailChange)
+            AuthEntryField("Mật khẩu", password, !busy, Icons.Default.Lock, KeyboardType.Password, password = true,
+                errorText = errors.password, hint = if (registering) "8–128 ký tự, không chỉ gồm khoảng trắng." else null,
+                forceError = revealErrors, done = !registering, onDone = submit, onChange = onPasswordChange)
+            if (registering) AuthEntryField("Xác nhận mật khẩu", confirmation, !busy, Icons.Default.Lock,
+                KeyboardType.Password, password = true, errorText = errors.confirmation, forceError = revealErrors,
+                done = true, onDone = submit, onChange = onConfirmationChange)
         }
-        if (registering) Text("Mật khẩu từ 8–128 ký tự", Modifier.fillMaxWidth().padding(top = 8.dp),
-            color = Muted, style = MaterialTheme.typography.bodySmall)
-        ui.error?.let { Text(it, Modifier.fillMaxWidth().padding(top = 12.dp), color = MaterialTheme.colorScheme.error) }
-        if (ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
+        if (!errors.isValid && (revealErrors || listOf(email, name, password, confirmation).any { it.isNotEmpty() })) {
+            Text("Chưa thể ${if (registering) "đăng ký" else "đăng nhập"}: ${errors.messages.first()}",
+                Modifier.fillMaxWidth().padding(top = 12.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        error?.let { Text(it, Modifier.fillMaxWidth().padding(top = 12.dp), color = MaterialTheme.colorScheme.error) }
+        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
         Spacer(Modifier.height(if (registering) 24.dp else 30.dp))
-        Button(enabled = !ui.busy && valid, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
+        Button(enabled = !busy && errors.isValid, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
             shape = RoundedCornerShape(28.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint, contentColor = Color.White),
-            onClick = { if (registering) auth.register(email, password, name) else auth.signInEmail(email, password) }) {
+            onClick = submit) {
             Text(if (registering) "Đăng Ký" else "Đăng Nhập", fontWeight = FontWeight.Bold)
         }
-        TextButton(enabled = !ui.busy, modifier = Modifier.fillMaxWidth(), onClick = {
-            registering = !registering; password = ""; confirmation = ""; auth.clearFeedback()
-        }) {
+        TextButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = onSwitch) {
             Text(buildAnnotatedString {
                 withStyle(SpanStyle(color = Muted)) { append(if (registering) "Đã có tài khoản? " else "Chưa có tài khoản? ") }
                 withStyle(SpanStyle(color = Mint, fontWeight = FontWeight.SemiBold)) { append(if (registering) "Đăng nhập" else "Đăng ký ngay") }
             }, fontSize = 13.sp, textAlign = TextAlign.Center)
         }
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(enabled = !ui.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             shape = RoundedCornerShape(28.dp), colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Mint),
-            onClick = { auth.signIn(context) }) { Text("Tiếp tục với Google", fontWeight = FontWeight.SemiBold) }
+            onClick = onGoogle) { Text("Tiếp tục với Google", fontWeight = FontWeight.SemiBold) }
         Spacer(Modifier.height(24.dp))
     }
+}
 }

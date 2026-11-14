@@ -9,6 +9,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app_health.app.feature.auth.AuthViewModel
 import com.app_health.app.feature.auth.CredentialPasswordField
 import com.app_health.app.feature.auth.validPasswordUpdate
+import com.app_health.app.feature.auth.newPasswordError
+import com.app_health.app.feature.auth.loginPasswordError
+import com.app_health.app.feature.auth.confirmationError
 
 fun accountSecurityFeature() = AppFeature("security", "Bảo mật tài khoản") { vm, _ -> AccountSecurityScreen(vm) }
 
@@ -36,9 +39,9 @@ fun AccountSecurityScreen(vm: AppViewModel) {
             Panel(if (account.hasPassword) "Đổi mật khẩu" else "Thêm mật khẩu cho tài khoản") {
                 Text(account.email)
                 Text("Mật khẩu 8–128 ký tự. Mật khẩu được gửi đến BE để xác minh, không lưu trên thiết bị.")
-                if (account.hasPassword) CredentialPasswordField("Mật khẩu hiện tại", current, !ui.busy) { current = it }
-                CredentialPasswordField("Mật khẩu mới", next, !ui.busy) { next = it }
-                CredentialPasswordField("Nhập lại mật khẩu mới", confirmation, !ui.busy) { confirmation = it }
+                if (account.hasPassword) CredentialPasswordField("Mật khẩu hiện tại", current, !ui.busy, loginPasswordError(current)) { current = it; auth.clearFeedback() }
+                CredentialPasswordField("Mật khẩu mới", next, !ui.busy, newPasswordError(next)) { next = it; auth.clearFeedback() }
+                CredentialPasswordField("Nhập lại mật khẩu mới", confirmation, !ui.busy, confirmationError(next, confirmation)) { confirmation = it; auth.clearFeedback() }
                 Button(enabled = !ui.busy && validPasswordUpdate(account.hasPassword, current, next, confirmation), onClick = {
                     auth.updatePassword(ownerId, current.takeIf { account.hasPassword }, next)
                 }) { Text("Lưu mật khẩu") }
