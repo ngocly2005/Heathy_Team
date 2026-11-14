@@ -7,12 +7,12 @@ import java.io.IOException
 
 class CredentialFeedbackTest {
     @Test fun screenshotInputsExplainBothEmailAndSevenCharacterPassword() {
-        val errors = registrationErrors("thanhthien55200gmail.com", "VO THANH THIEN", "5500000", "5500000")
+        val errors = registrationErrors("studentexample.com", "Test Student", "1234567", "1234567")
         assertFalse(errors.isValid)
         assertTrue(errors.email!!.contains("@"))
         assertTrue(errors.password!!.contains("hiện có 7"))
         assertNull(errors.name); assertNull(errors.confirmation)
-        assertTrue(registrationErrors("thanhthien55200@gmail.com", "VO THANH THIEN", "55000000", "55000000").isValid)
+        assertTrue(registrationErrors("student@example.com", "Test Student", "12345678", "12345678").isValid)
     }
 
     @Test fun emailRejectsMalformedAddressesAndAcceptsCommonRealForms() {
@@ -39,9 +39,9 @@ class CredentialFeedbackTest {
         assertNotNull(accountNameError(" \u00a0 "))
         assertNull(accountNameError(" Ngọc Lý "))
         listOf("A\nB", "A\tB", "A\u0000B", "A\u007fB").forEach { assertNotNull(accountNameError(it)) }
-        listOf("", "5500000", "x".repeat(129), " ".repeat(8), "\u00a0".repeat(8), "abcd\nefgh", "abcd\u0000efgh", "abcd\u0085efgh")
+        listOf("", "1234567", "x".repeat(129), " ".repeat(8), "\u00a0".repeat(8), "abcd\nefgh", "abcd\u0000efgh", "abcd\u0085efgh")
             .forEach { assertNotNull(newPasswordError(it)) }
-        listOf("55000000", "x".repeat(128), " 12345678 ").forEach { assertNull(newPasswordError(it)) }
+        listOf("12345678", "x".repeat(128), " 12345678 ").forEach { assertNull(newPasswordError(it)) }
     }
 
     @Test fun confirmationTracksChangesAndMessagesNeverEchoThePassword() {
