@@ -134,6 +134,7 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                     color = Color(0xFF34A8F5), trackColor = Color(0xFFE2F3FF), modifier = Modifier.fillMaxWidth().height(10.dp))
                 target?.takeIf { it > 0 }?.let {
                     Text("${(total.toDouble() * 100 / it).toInt()}% mục tiêu", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    HealthWarningPanel(waterIntakeWarnings(total, it))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(enabled = enabled && water != null && total > 0, modifier = Modifier.weight(1f),
@@ -185,7 +186,8 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
 
     if (addSheet) AddFoodBottomSheet(onDismiss = { addSheet = false },
         onNavigateToSelectFood = { addSheet = false; navigate("food") },
-        onNavigateToCaptureFood = { addSheet = false; navigate("photo") })
+        onNavigateToCaptureFood = { addSheet = false; navigate("photo") },
+        onNavigateToChat = { addSheet = false; navigate("chat") })
 
     editing?.let { kind ->
         val number = inputNumber(amount)

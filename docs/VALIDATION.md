@@ -1,5 +1,23 @@
 # Kiểm chứng tích hợp
 
+## 2026-11-15 — Tự khôi phục đọc dữ liệu, cảnh báo mục tiêu và lối vào chat
+
+- Android: **90 JVM tests** thành công; `assembleDebug` và `lintDebug` thành công,
+  **0 Error/Fatal**, 113 Warning, 2 Hint còn trong toàn project.
+- Lượt tải màn tự thử lại tối đa 2 lần sau lỗi GET tạm thời (mạng, 408/5xx, JSON
+  bị gián đoạn). Lỗi quyền và tình huống refresh token không rõ kết quả không
+  được tự thử lại. Các nguồn dữ liệu độc lập tiếp tục tải khi một nguồn thất bại;
+  thao tác POST/PUT/DELETE không tự phát lại. Có test chuyển màn trong khi chờ,
+  lỗi quyền, dữ liệu phụ bị lỗi và Admin Android đọc lại.
+- Tỷ lệ macro, cân nặng mong muốn, calo và nước hiện cảnh báo vàng theo
+  [ngưỡng tham khảo](CANH_BAO_MUC_TIEU_20261115.md). Kiểm tra cả 100/0/0 macro,
+  calo thấp/cao, tuổi, BMI, nước 3.200/2.723 ml và >4,5 lít. Chặn dữ liệu sai
+  định dạng/tổng tỷ lệ như trước; cảnh báo không chặn lưu.
+- Nút **+** mở thêm Tư vấn bữa ăn với AI. Khi chưa có hồ sơ, chat chỉ rõ cần cập
+  nhật và dẫn đến trang hồ sơ. Hướng dẫn 32 task đã cập nhật đường vào.
+- Đây là kiểm tra JVM/build/lint và code tĩnh; chưa chạy trên emulator/thiết bị
+  hay backend thật. BE/API/database/migration không đổi trong đợt này.
+
 ## 2026-11-14 — Validation tài khoản và hướng dẫn 32 task
 
 - Android: 82 JVM tests, APK và lint thành công (không Error/Fatal). Có kiểm tra

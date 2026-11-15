@@ -122,16 +122,22 @@ fun MacroScreen(vm: AppViewModel, navigate: (String) -> Unit = {}) {
         }
         FigmaTitle("2. Cân nặng mong muốn")
         NumberInput("Cân nặng mục tiêu (kg, không bắt buộc)",weight,enabled){weight=it}
+        HealthWarningPanel(weightGoalWarnings(w, state.profile))
         FigmaTitle("3. Calo mục tiêu hàng ngày")
         NumberInput("Calo/ngày (để trống dùng TDEE)",calories,enabled){calories=it}
         Text("Để trống để dùng mục tiêu được tính từ hồ sơ đã lưu.", color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
+        HealthWarningPanel(calorieGoalWarnings(cal, state.profile))
         FigmaTitle("4. Mục tiêu dinh dưỡng & đa lượng")
         FigmaCard {
             NumberInput("Chất đạm (%)",protein,enabled){protein=it}
             NumberInput("Đường bột (%)",carbs,enabled){carbs=it}
             NumberInput("Chất béo (%)",fat,enabled){fat=it}
-            Text("Tổng tỷ lệ phải bằng 100%.", color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
+            Text(if (p != null && c != null && f != null) "Tổng hiện tại ${p+c+f}% (phải bằng 100%)." else "Nhập đủ ba tỷ lệ; tổng phải bằng 100%.",
+                color = if (p != null && c != null && f != null && p+c+f != 100) Color(0xFF9A6300) else FigmaMuted,
+                style = MaterialTheme.typography.bodySmall)
         }
+        HealthWarningPanel(macroGoalWarnings(p, c, f, state.profile?.age))
+        if (state.profile == null) HealthWarningPanel(listOf("Hãy cập nhật hồ sơ thể chất để so sánh cân nặng và calo mục tiêu với chỉ số cá nhân của bạn."))
         Button(enabled=enabled && valid,onClick={ vm.write {ctx ->
             vm.api.saveNutrition(ctx.owner,mapOf("calorie_target" to cal,"protein_pct" to p,"carb_pct" to c,"fat_pct" to f,"target_weight_kg" to w))
         } },modifier=Modifier.fillMaxWidth().heightIn(min=50.dp),shape=RoundedCornerShape(28.dp)) { Text("Lưu mục tiêu", fontWeight = FontWeight.Bold) }

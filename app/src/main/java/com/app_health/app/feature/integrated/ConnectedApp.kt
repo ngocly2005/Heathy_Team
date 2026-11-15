@@ -91,7 +91,8 @@ private fun ConnectedShell(vm: AppViewModel, onOpenAdmin: () -> Unit, onRefreshI
         if(features.any{it.route=="diary"}) AppBottomNavigation(enabled = !busy,
             currentRoute=when(route){"diary"->BottomNavRoute.DIARY;"meals"->BottomNavRoute.PLAN;"profile"->BottomNavRoute.ACCOUNT;else->BottomNavRoute.HOME},
             onRouteSelected={target ->if(!busy)route=when(target){BottomNavRoute.HOME->"home";BottomNavRoute.DIARY->"diary";BottomNavRoute.PLAN->"meals";BottomNavRoute.ACCOUNT->"profile"}},
-            onNavigateToSelectFood={if(!busy)route="food"},onNavigateToCaptureFood={if(!busy)route="photo"})
+            onNavigateToSelectFood={if(!busy)route="food"},onNavigateToCaptureFood={if(!busy)route="photo"},
+            onNavigateToChat={if(!busy)route="chat"})
         else if (features.isNotEmpty()) NavigationBar {
             listOf("home","diary","meals","profile").mapNotNull{key->features.firstOrNull{it.route==key}}.forEach { feature ->
                 NavigationBarItem(selected = route == feature.route, onClick = { if (!busy) route = feature.route },

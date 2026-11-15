@@ -3,6 +3,7 @@ package com.app_health.app.feature.integrated
 import com.app_health.app.core.network.ApiFailure
 import com.app_health.app.core.network.SessionRequestTag
 import com.app_health.app.core.network.toUserMessage
+import com.app_health.app.core.network.retryTransientRead
 import com.google.gson.JsonParseException
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -175,16 +176,27 @@ internal class AppDataController(
         mutable.update { it.copy(loading = true, error = null, readRevision = readRevision) }
         readJob = scope.launch {
             try {
+                var firstFailure: Exception? = null
                 for (feature in plan) {
                     ensureCurrent(ctx)
                     if (feature !in loaded) {
-                        loadFeature(feature, ctx)
-                        currentCoroutineContext().ensureActive()
-                        ensureCurrent(ctx)
-                        loaded.add(feature)
+                        try {
+                            retryTransientRead(checkCurrent = { ensureCurrent(ctx) }) { loadFeature(feature, ctx) }
+                            currentCoroutineContext().ensureActive()
+                            ensureCurrent(ctx)
+                            loaded.add(feature)
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (failure: Exception) {
+                            currentCoroutineContext().ensureActive()
+                            ensureCurrent(ctx)
+                            if (firstFailure == null) firstFailure = failure
+                            // An optional companion read must not prevent the screen's own data.
+                        }
                     }
                 }
                 ensureCurrent(ctx)
+                firstFailure?.let { throw it }
                 uncertainRoute = null
                 publish(ctx) { it.copy(uncertain = false, error = null) }
             } catch (cancelled: CancellationException) {
@@ -251,7 +263,7 @@ internal class AppDataController(
         return scope.launch {
             try {
                 ensureCurrent(ctx)
-                operation(ctx)
+                retryTransientRead(checkCurrent = { ensureCurrent(ctx) }) { operation(ctx) }
                 currentCoroutineContext().ensureActive()
                 readSucceeded(ctx)
             } catch (cancelled: CancellationException) {

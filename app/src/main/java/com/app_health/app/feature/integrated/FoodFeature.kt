@@ -23,6 +23,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import com.app_health.app.core.network.toUserMessage
+import com.app_health.app.core.network.retryTransientRead
 
 fun foodFeature() = AppFeature("food", "Tìm món ăn") { vm, navigate -> FoodScreen(vm, navigate) }
 
@@ -41,7 +42,9 @@ fun FoodScreen(vm: AppViewModel, navigate: (String) -> Unit) {
         delay(300)
         val ctx = vm.context()
         try {
-            val results = vm.api.foods(ctx.owner,query.trim())
+            val results = retryTransientRead(checkCurrent = { if (!vm.valid(ctx)) throw CancellationException("Screen changed") }) {
+                vm.api.foods(ctx.owner,query.trim())
+            }
             vm.readSucceeded(ctx) { it.copy(foods=results) }
         } catch (e: CancellationException) { throw e
         } catch (e: Exception) { currentCoroutineContext().ensureActive(); vm.showError(e.toUserMessage(),ctx)

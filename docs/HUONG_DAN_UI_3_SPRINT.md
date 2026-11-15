@@ -1,6 +1,6 @@
 # Bảng hướng dẫn vào UI theo 3 sprint
 
-Cập nhật **14/11/2026**. Có **16 dòng tương ứng 32 task FE/BE**; hai task cùng dòng dùng chung luồng UI.
+Cập nhật **15/11/2026**. Có **16 dòng tương ứng 32 task FE/BE**; hai task cùng dòng dùng chung luồng UI.
 
 | Task | Sprint | Tính năng | Vào UI hiện tại |
 |---|---|---|---|
@@ -16,7 +16,7 @@ Cập nhật **14/11/2026**. Có **16 dòng tương ứng 32 task FE/BE**; hai t
 | S2-BL38-FE / S2-BL39-BE | S2 | Bữa ăn đã lưu và thêm nhanh | Android → tab **Thực đơn → Lưu bữa ăn / Thêm nhanh vào nhật ký** |
 | S2-BL42-FE / S2-BL43-BE | S2 | Cân nặng và biểu đồ tháng | Android → **Tài khoản → Cân nặng**; hoặc hồ sơ → **Xem biểu đồ cân nặng** |
 | S2-BL46-FE / S2-BL47-BE | S2 | Admin quản lý thực phẩm/bài tập | Admin web → **Thực phẩm / Bài tập → Thêm / Sửa / Ngừng sử dụng** |
-| S3-BL50-FE / S3-BL51-BE | S3 | Chat AI và gợi ý bữa ăn | Android → **Tài khoản → cuộn xuống → Tư vấn bữa ăn** |
+| S3-BL50-FE / S3-BL51-BE | S3 | Chat AI và gợi ý bữa ăn | Android → **+ → Tư vấn bữa ăn với AI**; hoặc **Tài khoản → Tư vấn bữa ăn** |
 | S3-BL54-FE / S3-BL55-BE | S3 | Nhật ký tổng hợp và chỉnh/xóa | Android → tab **Nhật ký → chọn ngày → Sửa / Xóa** tại mục cần chỉnh |
 | S3-BL58-FE / S3-BL59-BE | S3 | Lịch và ngày quá khứ | Android → **Tài khoản → Lịch sử ngày**; hoặc **Nhật ký → tiêu đề ngày / biểu tượng lịch** |
 | S3-BL62-FE / S3-BL63-BE | S3 | Admin biểu đồ và lịch sử AI | Admin web → **Dashboard / Lịch sử AI → Chi tiết** |
@@ -32,7 +32,7 @@ Cập nhật **14/11/2026**. Có **16 dòng tương ứng 32 task FE/BE**; hai t
 
 # Hướng dẫn sử dụng UI theo 32 task của 3 sprint
 
-Cập nhật: **14/11/2026**. Dùng cho bản chính trong repo **Heathy_Team** (Android
+Cập nhật: **15/11/2026**. Dùng cho bản chính trong repo **Heathy_Team** (Android
 và Admin web), kết nối repo **App_Heathy_BE**.
 
 Lịch có **16 task FE + 16 task BE**. Mỗi dòng dưới ghép hai task cùng tính năng.
@@ -64,7 +64,7 @@ Giáo viên cấp quyền theo phần Admin trong [hướng dẫn chi tiết](HU
 **Điểm cần nhớ khi thao tác:**
 
 - Thanh dưới Android: **Trang chủ / Nhật ký / + / Thực đơn / Tài khoản**.
-- Nút **+** mở lựa chọn thêm món thủ công hoặc chụp ảnh.
+- Nút **+** mở lựa chọn thêm món thủ công, chụp ảnh hoặc tư vấn bữa ăn với AI.
 - Trong **Tài khoản**, cuộn xuống để thấy Dinh dưỡng, Vận động, Uống nước,
   Cân nặng, Tư vấn bữa ăn và Lịch sử ngày.
 - Dữ liệu sức khỏe phụ thuộc **tài khoản và ngày đang chọn**. Chọn cùng ngày
@@ -157,6 +157,9 @@ Admin Android có chức năng tương ứng, nhưng không thay thế phần tr
 Ở Thiết lập mục tiêu, nhập calo/ngày hoặc để trống dùng mục tiêu từ hồ sơ; nhập
 tỷ lệ đạm/bột/béo, tổng phải bằng **100%** → **Lưu mục tiêu**. Xem tổng hợp mục
 tiêu đã lưu và phần dinh dưỡng trong ngày; thêm món rồi đối chiếu các thanh/biểu đồ.
+Nếu tỷ lệ ngoài khoảng tham khảo, cân nặng mong muốn cần thời gian dài hơn hoặc
+calo quá thấp/cao so với hồ sơ, app hiện cảnh báo vàng trước khi lưu. Xem
+[cách hiểu các ngưỡng](CANH_BAO_MUC_TIEU_20261115.md).
 
 **Đạt khi:** mục tiêu lưu lại, thanh gram và tỷ lệ năng lượng thay đổi theo dữ liệu
 đã ăn; tỷ lệ mục tiêu không bị nhầm với tỷ lệ thực tế. Chất xơ chưa thuộc tính năng.
@@ -177,6 +180,9 @@ lại được. Nếu catalog trống, Admin cần thêm bài tập ở mục 3.
 
 Chọn ngày → **+ / −** theo dung tích ly. Nhập mục tiêu tùy chỉnh hoặc để trống tự
 tính, chọn dung tích ly → **Lưu cài đặt nước**. Xem tổng ml, số ly và tiến độ.
+Mục tiêu cao bất thường, hoặc tổng đã ghi vượt hơn 10% mục tiêu hay trên 4,5
+lít/ngày, hiện cảnh báo vàng; đây là lời nhắc kiểm tra, không phải mức trần an
+toàn chung.
 
 **Đạt khi:** tổng cùng ngày khớp Trang chủ/Nhật ký, không âm, cài đặt còn sau khi
 mở lại. Nút trừ không phải thao tác xóa mọi log nước trong ngày.
@@ -219,7 +225,10 @@ Admin Android dùng chung BE cũng có quản lý catalog.
 
 ### 4.1. Chat tư vấn bữa ăn — S3-BL50-FE / S3-BL51-BE
 
-**Đường vào:** **Tài khoản → cuộn xuống → Tư vấn bữa ăn**.
+**Đường vào:** **+ → Tư vấn bữa ăn với AI**; hoặc **Tài khoản → cuộn xuống → Tư vấn bữa ăn**.
+
+Lần đầu chưa có hồ sơ, màn chat hiện thông báo vàng và nút **Đi tới hồ sơ thể chất**.
+Hãy lưu tuổi, chiều cao, cân nặng và mức vận động trước khi hỏi AI.
 
 Chọn ngày, nhập câu hỏi (ví dụ “Gợi ý bữa trưa theo mục tiêu của tôi”) → **Gửi**.
 Đọc/cuộn phản hồi, mở lại màn để xem lịch sử. Bấm chip hỏi tiếp (ví dụ Chi tiết

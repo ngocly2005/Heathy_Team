@@ -3,6 +3,7 @@ package com.app_health.app.feature.home.components.AddCameraFood
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,7 +19,8 @@ import androidx.compose.ui.unit.sp
 fun AddFoodBottomSheet(
     onDismiss: () -> Unit,
     onNavigateToSelectFood: () -> Unit,
-    onNavigateToCaptureFood: () -> Unit
+    onNavigateToCaptureFood: () -> Unit,
+    onNavigateToChat: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -35,7 +37,7 @@ fun AddFoodBottomSheet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Thêm bữa ăn",
+                text = "Thao tác nhanh",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -72,6 +74,15 @@ fun AddFoodBottomSheet(
             ) {
                 Text("Chụp ảnh món ăn", fontSize = 16.sp)
             }
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = { onDismiss(); onNavigateToChat() },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) {
+                Icon(Icons.Default.Forum, null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Tư vấn bữa ăn với AI", fontSize = 16.sp)
+            }
         }
     }
 }
@@ -81,6 +92,7 @@ fun AddFoodBottomSheetPreview() {
     AddFoodBottomSheet(
         onDismiss = {},
         onNavigateToSelectFood = {},
-        onNavigateToCaptureFood = {}
+        onNavigateToCaptureFood = {},
+        onNavigateToChat = {}
     )
 }

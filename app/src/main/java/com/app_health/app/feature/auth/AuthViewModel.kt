@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.app_health.app.core.network.toUserMessage
+import com.app_health.app.core.network.retryTransientRead
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,11 +45,11 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         return false
     }
 
-    fun loadAccount(ownerId: Long) = credentials { repository.account(ownerId) }
+    fun loadAccount(ownerId: Long) = credentials { retryTransientRead { repository.account(ownerId) } }
 
     fun updatePassword(ownerId: Long, current: String?, next: String) = credentials("Đã lưu mật khẩu.") {
         repository.updatePassword(ownerId, current, next)
-        repository.account(ownerId)
+        retryTransientRead { repository.account(ownerId) }
     }
 
     fun linkGoogle(ownerId: Long, context: Context) = credentials("Đã liên kết Google với tài khoản hiện tại.") {

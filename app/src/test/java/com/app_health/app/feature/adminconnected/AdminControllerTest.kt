@@ -15,11 +15,14 @@ class AdminControllerTest {
     private class Backend : AdminApi {
         var identity = AdminIdentity(1, "teacher@example.com", "Teacher", "admin", "active")
         var meFailure: Exception? = null
+        var meFailuresRemaining = 0
+        var analyticsFailuresRemaining = 0
         val calls = mutableListOf<String>()
         var userLoader: suspend (Map<String, String>) -> AdminPage<AdminUserRow> = { AdminPage(emptyList(), 0) }
-        override suspend fun me(owner: SessionRequestTag): AdminIdentity { calls += "me"; meFailure?.let { throw it }; return identity }
+        override suspend fun me(owner: SessionRequestTag): AdminIdentity { calls += "me"; if (meFailuresRemaining-- > 0) throw IOException("Brief connection interruption"); meFailure?.let { throw it }; return identity }
         override suspend fun analytics(owner: SessionRequestTag, from: String, to: String): AdminReport {
-            calls += "analytics"; return AdminReport(from, to, mapOf("total_users" to 4L), emptyList())
+            calls += "analytics"; if (analyticsFailuresRemaining-- > 0) throw IOException("Brief connection interruption")
+            return AdminReport(from, to, mapOf("total_users" to 4L), emptyList())
         }
         override suspend fun users(owner: SessionRequestTag, query: Map<String, String>): AdminPage<AdminUserRow> { calls += "users:${query["q"]}"; return userLoader(query) }
         override suspend fun foods(owner: SessionRequestTag, query: Map<String, String>): AdminPage<AdminFood> { calls += "foods"; return AdminPage(emptyList(), 0) }
@@ -31,6 +34,17 @@ class AdminControllerTest {
         override suspend fun createActivity(owner: SessionRequestTag, value: Map<String, Any?>): AdminActivity = error("Not used")
         override suspend fun editActivity(owner: SessionRequestTag, id: Long, value: Map<String, Any?>): AdminActivity = error("Not used")
         override suspend fun deactivate(owner: SessionRequestTag, resource: String, id: Long) = error("Not used")
+    }
+
+    @Test fun firstVisitRecoversFromTransientIdentityAndDashboardReads() = runTest {
+        val api = Backend().apply { meFailuresRemaining = 1; analyticsFailuresRemaining = 1 }
+        val controller = AdminController(this, api, { 1L })
+        controller.activate(); advanceUntilIdle()
+        assertEquals(2, api.calls.count { it == "me" })
+        assertEquals(2, api.calls.count { it == "analytics" })
+        assertNotNull(controller.state.value.report)
+        assertNull(controller.state.value.error)
+        assertFalse(controller.state.value.loading)
     }
 
     @Test fun liveUserRoleCannotBeOverriddenByCachedAdminUi() = runTest {

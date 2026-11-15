@@ -82,8 +82,9 @@ fun ChatScreen(vm: AppViewModel, navigate: (String) -> Unit) {
 
     Column(Modifier.fillMaxSize().imePadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Tư vấn theo ngày ${state.date}", style = MaterialTheme.typography.bodySmall)
-        if (state.profile == null) TextButton(enabled = !state.busy, onClick = { navigate("profile") }) {
-            Text("Nhập hồ sơ để nhận tư vấn")
+        if (state.profile == null) {
+            HealthWarningPanel(listOf("Bạn cần nhập hồ sơ thể chất (tuổi, chiều cao, cân nặng và mức vận động) trước khi chat để AI đưa ra gợi ý phù hợp. Sau khi lưu hồ sơ, quay lại đây để đặt câu hỏi."))
+            TextButton(enabled = !state.busy, onClick = { navigate("profile") }) { Text("Đi tới hồ sơ thể chất") }
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list,
             verticalArrangement = Arrangement.spacedBy(10.dp)) {

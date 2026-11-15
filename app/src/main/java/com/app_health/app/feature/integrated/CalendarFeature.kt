@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.app_health.app.core.network.toUserMessage
+import com.app_health.app.core.network.retryTransientRead
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -27,7 +28,7 @@ fun CalendarScreen(vm:AppViewModel,navigate:(String)->Unit) {
         if(state.loading || state.busy || state.route!="calendar")return@LaunchedEffect
         val ctx=vm.context()
         loading=true
-        try{val result=vm.api.calendar(ctx.owner,month.toString());if(vm.valid(ctx)){rows=result;vm.readSucceeded(ctx)}}
+        try{val result=retryTransientRead(checkCurrent = { if (!vm.valid(ctx)) throw CancellationException("Screen changed") }) { vm.api.calendar(ctx.owner,month.toString()) };if(vm.valid(ctx)){rows=result;vm.readSucceeded(ctx)}}
         catch(e:CancellationException){throw e}
         catch(e:Exception){currentCoroutineContext().ensureActive();vm.showError(e.toUserMessage(),ctx)}
         finally{loading=false}

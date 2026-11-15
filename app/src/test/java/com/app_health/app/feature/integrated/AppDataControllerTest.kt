@@ -62,12 +62,66 @@ class AppDataControllerTest {
         advanceUntilIdle()
         assertNull(data.state.value.error)
         assertEquals("Bữa đã lưu", data.state.value.meals.single().name)
-        assertEquals(2, backend.calls.count { it.first == "meals" })
+        assertEquals(4, backend.calls.count { it.first == "meals" })
         assertFalse(backend.calls.any { it.first in listOf("chat", "weight", "activity") })
         val count = backend.calls.size
         data.enter("home")
         advanceUntilIdle()
         assertEquals(count, backend.calls.size)
+    }
+
+    @Test fun transientFailureRecoversOnFirstVisitWithoutManualRefresh() = runTest {
+        val backend = Backend(this)
+        var failures = 0
+        backend.onRead = { route, ctx ->
+            if (route == "meals" && failures++ < 2) throw IOException("Brief network interruption")
+            backend.respond(route, ctx)
+        }
+        backend.data.enter("meals")
+        advanceUntilIdle()
+        assertEquals("Bữa đã lưu", backend.data.state.value.meals.single().name)
+        assertNull(backend.data.state.value.error)
+        assertFalse(backend.data.state.value.loading)
+        assertEquals(3, backend.calls.count { it.first == "meals" })
+    }
+
+    @Test fun failedCompanionReadDoesNotHideSavedMeals() = runTest {
+        val backend = Backend(this)
+        backend.onRead = { route, ctx ->
+            if (route == "home") throw IOException("Dashboard unavailable")
+            backend.respond(route, ctx)
+        }
+        backend.data.enter("meals")
+        advanceUntilIdle()
+        assertEquals("Bữa đã lưu", backend.data.state.value.meals.single().name)
+        assertNotNull(backend.data.state.value.error)
+        assertFalse(backend.data.state.value.loading)
+        assertEquals(3, backend.calls.count { it.first == "home" })
+        assertEquals(1, backend.calls.count { it.first == "meals" })
+    }
+
+    @Test fun authorizationFailureIsNotRetriedAndNavigatingCancelsPendingRetry() = runTest {
+        val backend = Backend(this)
+        backend.onRead = { route, ctx ->
+            if (route == "meals") throw ApiFailure(403, "Denied")
+            backend.respond(route, ctx)
+        }
+        backend.data.enter("meals")
+        advanceUntilIdle()
+        assertEquals(1, backend.calls.count { it.first == "meals" })
+        assertEquals("Denied", backend.data.state.value.error)
+
+        backend.onRead = { route, ctx ->
+            if (route == "meals") throw IOException("Transient")
+            backend.respond(route, ctx)
+        }
+        backend.data.refresh()
+        runCurrent() // One failed GET, then retry timer starts.
+        backend.data.enter("profile")
+        advanceUntilIdle()
+        assertEquals(2, backend.calls.count { it.first == "meals" })
+        assertEquals("profile", backend.data.state.value.route)
+        assertNull(backend.data.state.value.error)
     }
 
     @Test fun cancelledRequestCannotPublishDataOrConnectionErrorsAfterNavigation() = runTest {

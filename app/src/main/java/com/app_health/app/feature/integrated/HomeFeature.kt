@@ -25,8 +25,9 @@ import kotlin.math.abs
 
 fun homeFeature() = AppFeature("home", "Trang chủ", load = { vm, ctx ->
     val dashboard = vm.api.dashboard(ctx.owner, ctx.date)
+    vm.publish(ctx) { it.copy(dashboard = dashboard) }
     val nutrition = vm.api.nutrition(ctx.owner)
-    vm.publish(ctx) { it.copy(dashboard = dashboard, nutrition = nutrition) }
+    vm.publish(ctx) { it.copy(nutrition = nutrition) }
 }) { vm, navigate -> HomeScreen(vm, navigate) }
 
 @Composable fun DateStrip(vm: AppViewModel) = WeekStrip(vm)
@@ -165,5 +166,6 @@ private fun HomeWaterCard(vm: AppViewModel) {
                 vm.write { ctx -> vm.api.adjustWater(ctx.owner, mapOf("log_date" to ctx.date, "amount_ml" to settings.serving_ml)) }
             }) { Icon(Icons.Default.Add, "Thêm một ly nước") }
         }
+        HealthWarningPanel(waterIntakeWarnings(day.water_ml, settings.effective_target_ml))
     }
 }

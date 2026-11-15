@@ -38,6 +38,7 @@ fun AppBottomNavigation(
     onRouteSelected: (BottomNavRoute) -> Unit,
     onNavigateToSelectFood: () -> Unit,
     onNavigateToCaptureFood: () -> Unit,
+    onNavigateToChat: () -> Unit = {},
     enabled: Boolean = true
 ) {
     var showAddSheet by remember { mutableStateOf(false) }
@@ -59,7 +60,8 @@ fun AppBottomNavigation(
     if (showAddSheet && enabled) AddFoodBottomSheet(
         onDismiss = { showAddSheet = false },
         onNavigateToSelectFood = { showAddSheet = false; onNavigateToSelectFood() },
-        onNavigateToCaptureFood = { showAddSheet = false; onNavigateToCaptureFood() }
+        onNavigateToCaptureFood = { showAddSheet = false; onNavigateToCaptureFood() },
+        onNavigateToChat = { showAddSheet = false; onNavigateToChat() }
     )
 }
 
@@ -79,5 +81,5 @@ private fun RowScope.NavItem(title: String, icon: ImageVector, selected: Boolean
 @Composable
 fun AppBottomNavigationPreview() {
     AppBottomNavigation(currentRoute = BottomNavRoute.HOME, onRouteSelected = {},
-        onNavigateToSelectFood = {}, onNavigateToCaptureFood = {})
+        onNavigateToSelectFood = {}, onNavigateToCaptureFood = {}, onNavigateToChat = {})
 }

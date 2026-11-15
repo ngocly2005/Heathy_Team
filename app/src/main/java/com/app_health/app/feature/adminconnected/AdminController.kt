@@ -3,6 +3,7 @@ package com.app_health.app.feature.adminconnected
 import com.app_health.app.core.network.ApiFailure
 import com.app_health.app.core.network.SessionRequestTag
 import com.app_health.app.core.network.toUserMessage
+import com.app_health.app.core.network.retryTransientRead
 import com.google.gson.JsonParseException
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,7 +81,7 @@ internal class AdminController(private val scope: CoroutineScope, private val ap
         if (!valid(id, version)) throw CancellationException("Admin account or request changed")
     }
     private suspend fun permission(id: Long, version: Long): Boolean {
-        val user = api.me(SessionRequestTag(id))
+        val user = retryTransientRead(checkCurrent = { requireCurrent(id, version) }) { api.me(SessionRequestTag(id)) }
         currentCoroutineContext().ensureActive(); requireCurrent(id, version)
         if (user.id != id || user.status != "active" || user.role != "admin") {
             // Revocation is authoritative even if encrypted identity persistence subsequently fails.
@@ -137,11 +138,11 @@ internal class AdminController(private val scope: CoroutineScope, private val ap
         val tag = SessionRequestTag(id)
         val params = query.parameters()
         val update: (NativeAdminState) -> NativeAdminState = when (query.tab) {
-            AdminTab.DASHBOARD -> { val result = api.analytics(tag, query.from, query.to); { it.copy(report = result) } }
-            AdminTab.USERS -> { val result = api.users(tag, params); { it.copy(users = result.items, total = result.total) } }
-            AdminTab.FOODS -> { val result = api.foods(tag, params); { it.copy(foods = result.items, total = result.total) } }
-            AdminTab.ACTIVITIES -> { val result = api.activities(tag, params); { it.copy(activities = result.items, total = result.total) } }
-            AdminTab.LOGS -> { val result = api.logs(tag, params); { it.copy(logs = result.items, total = result.total) } }
+            AdminTab.DASHBOARD -> { val result = retryTransientRead(checkCurrent = { requireCurrent(id, version) }) { api.analytics(tag, query.from, query.to) }; { it.copy(report = result) } }
+            AdminTab.USERS -> { val result = retryTransientRead(checkCurrent = { requireCurrent(id, version) }) { api.users(tag, params) }; { it.copy(users = result.items, total = result.total) } }
+            AdminTab.FOODS -> { val result = retryTransientRead(checkCurrent = { requireCurrent(id, version) }) { api.foods(tag, params) }; { it.copy(foods = result.items, total = result.total) } }
+            AdminTab.ACTIVITIES -> { val result = retryTransientRead(checkCurrent = { requireCurrent(id, version) }) { api.activities(tag, params) }; { it.copy(activities = result.items, total = result.total) } }
+            AdminTab.LOGS -> { val result = retryTransientRead(checkCurrent = { requireCurrent(id, version) }) { api.logs(tag, params) }; { it.copy(logs = result.items, total = result.total) } }
         }
         currentCoroutineContext().ensureActive(); requireCurrent(id, version)
         mutable.update(update)
