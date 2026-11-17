@@ -131,6 +131,10 @@ xác nhận. Emulator không có camera có thể dùng ảnh thư viện. AI c�
 
 Tìm tên → chọn món/dấu cộng cạnh món → nhập gram → xem calo/đa lượng tính lại →
 chọn bữa, giờ `HH:mm` → **Thêm vào nhật ký**. Thử tìm từ khóa không có kết quả.
+Để tự tạo món: bấm **Tạo món**, nhập dinh dưỡng trên 100 g → lưu → mở món vừa
+tạo → **Thêm ảnh** từ máy. Tab **Tạo bởi tôi** chỉ hiển thị món của tài khoản đó.
+Món trong catalog chung sẽ hiện ảnh sau khi Admin tải ảnh tại web → **Thực phẩm
+→ Sửa → Thêm/Đổi ảnh món ăn**.
 
 **Đạt khi:** kết quả lấy từ catalog BE, lượng dinh dưỡng đổi theo gram; món xuất
 hiện ở đúng ngày/bữa/giờ trong Nhật ký, tổng Trang chủ cập nhật.
@@ -169,7 +173,8 @@ calo quá thấp/cao so với hồ sơ, app hiện cảnh báo vàng trước kh
 **Đường vào:** **Tài khoản → Vận động**, hoặc nút ghi vận động ở Trang chủ/Nhật ký.
 
 Chọn ngày, tìm/chọn loại vận động trong catalog, nhập phút hoạt động → xem ước
-tính → **Lưu vận động**. Kiểm tra Trang chủ và Nhật ký cùng ngày.
+tính → **Lưu vận động**. Bấm **Xem nhật ký** để xem hoạt động theo tháng, sửa
+thời gian hoặc xóa hoạt động cũ. Kiểm tra Trang chủ và Nhật ký cùng ngày.
 
 **Đạt khi:** có bài tập/thời lượng, calo được tính theo hồ sơ và MET; lưu rồi đọc
 lại được. Nếu catalog trống, Admin cần thêm bài tập ở mục 3.6. Chưa nhập quãng đường km.
@@ -191,9 +196,11 @@ mở lại. Nút trừ không phải thao tác xóa mọi log nước trong ngà
 
 **Đường vào:** tab **Thực đơn**.
 
-Ghi ít nhất một món trước → chọn ngày có món → tại **Lưu bữa từ nhật ký ngày đã
-chọn**, nhập tên, chọn món → **Lưu bữa ăn**. Thử sửa tên/khẩu phần hoặc xóa bữa
-thử nghiệm. Chọn ngày đích, bữa và giờ → **Thêm nhanh vào nhật ký**.
+Có hai cách tạo bữa: bấm **Tạo bữa ăn từ các món của tôi** rồi tìm/chọn món,
+chỉnh khẩu phần và lưu; hoặc ghi món vào nhật ký trước, chọn ngày có món rồi
+**Lưu bữa từ nhật ký ngày đã chọn**. Bấm **Sửa** để đổi tên, thêm/bỏ món hoặc
+đổi khẩu phần; có thể **Xóa** bữa thử nghiệm. Chọn ngày đích, bữa và giờ →
+**Thêm nhanh vào nhật ký**.
 
 **Đạt khi:** bữa lưu còn trong danh sách khi mở lại, thêm nhanh tạo log ở đúng
 ngày đích. Bữa lưu tối đa 30 món; xóa mẫu bữa khác với xóa món đã ghi trong Nhật ký.

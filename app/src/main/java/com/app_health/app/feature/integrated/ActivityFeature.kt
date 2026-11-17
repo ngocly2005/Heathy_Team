@@ -16,12 +16,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import java.text.Normalizer
 import java.util.Locale
 
 fun activityFeature() = AppFeature("activity", "Vận động",load={vm,ctx ->
     val activities=vm.api.activities(ctx.owner)
     vm.publish(ctx){it.copy(activities=activities)}
+    val history=vm.api.activityHistory(ctx.owner)
+    vm.publish(ctx){it.copy(activityHistory=history,activityHistoryHasMore=history.size==100)}
 }) {vm,navigate -> ActivityScreen(vm,navigate)}
 
 @Composable
@@ -30,11 +33,59 @@ fun ActivityScreen(vm: AppViewModel,navigate:(String)->Unit) {
     var selected by rememberSaveable {mutableStateOf("")}
     var minutes by rememberSaveable {mutableStateOf("30")}
     var query by rememberSaveable {mutableStateOf("")}
+    var showHistory by rememberSaveable { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<ActivityLogDto?>(null) }
+    var deleting by remember { mutableStateOf<ActivityLogDto?>(null) }
+    var editMinutes by remember { mutableStateOf("") }
+    var loadingMore by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val activity=state.activities.firstOrNull {it.id.toString()==selected}
     val duration=minutes.toIntOrNull()
     val enabled=!state.busy && !state.loading && !state.uncertain
     val profile=state.profile
     FigmaPage {
+        Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
+            Text(if (showHistory) "Nhật ký luyện tập" else "Thêm hoạt động", Modifier.weight(1f),
+                color=FigmaInk, style=MaterialTheme.typography.titleLarge, fontWeight=FontWeight.Bold)
+            TextButton(enabled=enabled,onClick={showHistory=!showHistory}) {
+                Text(if (showHistory) "Thêm mới" else "Xem nhật ký")
+            }
+        }
+        if (showHistory) {
+            Text("Calo đốt khi tập được tính riêng với calo đã ăn.", color=FigmaMuted,
+                style=MaterialTheme.typography.bodySmall)
+            if (state.activityHistory.isEmpty() && !state.loading)
+                Text("Chưa ghi hoạt động nào.", color=FigmaMuted)
+            state.activityHistory.groupBy { it.log_date.take(7) }.forEach { (month, logs) ->
+                Text("Tháng ${month.takeLast(2)}/${month.take(4)}", color=FigmaInk,
+                    fontWeight=FontWeight.Bold, modifier=Modifier.padding(top=12.dp))
+                logs.forEach { log ->
+                    FigmaCard(log.activity_name) {
+                        Text("${uiDate(log.log_date)} • ${log.duration_minutes} phút • ${log.calories_burned.display()} kcal",
+                            color=FigmaMuted)
+                        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(enabled=enabled,onClick={editing=log;editMinutes=log.duration_minutes.toString()}) {
+                                Text("Sửa thời gian")
+                            }
+                            TextButton(enabled=enabled,onClick={deleting=log}) { Text("Xóa",color=UiDanger) }
+                        }
+                    }
+                }
+            }
+            if (state.activityHistoryHasMore) OutlinedButton(enabled=enabled && !loadingMore,onClick={
+                loadingMore=true
+                scope.launch {
+                    try {
+                        vm.read {ctx ->
+                            val older=vm.api.activityHistory(ctx.owner,100,state.activityHistory.size)
+                            vm.publish(ctx) { it.copy(activityHistory=it.activityHistory+older,
+                                activityHistoryHasMore=older.size==100) }
+                        }.join()
+                    } finally { loadingMore=false }
+                }
+            },modifier=Modifier.fillMaxWidth()){Text(if (loadingMore) "Đang tải…" else "Xem hoạt động cũ hơn")}
+            return@FigmaPage
+        }
         DateStrip(vm)
         if (activity == null) {
             OutlinedTextField(query,{query=it.take(100)},placeholder={Text("Tìm kiếm hoạt động")},singleLine=true,
@@ -90,7 +141,33 @@ fun ActivityScreen(vm: AppViewModel,navigate:(String)->Unit) {
                 vm.write {ctx -> vm.api.addActivity(ctx.owner,mapOf("activity_type_id" to activity?.id,"duration_minutes" to duration,"log_date" to ctx.date))}
             },modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp)){Text("Lưu vận động")}
         }
-        state.dashboard?.activity_logs?.forEach {log -> FigmaCard(log.activity_name){Text("${log.duration_minutes} phút • ${log.calories_burned.display()} kcal",color=FigmaMuted)}}
+        state.dashboard?.activity_logs?.forEach {log -> FigmaCard(log.activity_name){
+            Text("${log.duration_minutes} phút • ${log.calories_burned.display()} kcal",color=FigmaMuted)
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(enabled=enabled,onClick={editing=log;editMinutes=log.duration_minutes.toString()}) {
+                    Text("Sửa thời gian")
+                }
+                TextButton(enabled=enabled,onClick={deleting=log}) { Text("Xóa",color=UiDanger) }
+            }
+        }}
+    }
+    editing?.let { log ->
+        AlertDialog(onDismissRequest={if (!state.busy) editing=null},title={Text("Sửa thời gian tập")},
+            text={NumberInput("Số phút",editMinutes,enabled){editMinutes=it}},
+            confirmButton={TextButton(enabled=enabled && (editMinutes.toIntOrNull() ?: 0) in 1..1440,onClick={
+                vm.write(success={editing=null}) {ctx ->
+                    vm.api.editActivity(ctx.owner,log.id,mapOf("duration_minutes" to editMinutes.toInt()))
+                }
+            }){Text("Lưu")}},
+            dismissButton={TextButton(enabled=!state.busy,onClick={editing=null}){Text("Hủy")}})
+    }
+    deleting?.let { log ->
+        AlertDialog(onDismissRequest={if (!state.busy) deleting=null},title={Text("Xóa hoạt động?")},
+            text={Text("${log.activity_name} ngày ${uiDate(log.log_date)} sẽ bị xóa khỏi nhật ký.")},
+            confirmButton={TextButton(enabled=enabled,onClick={
+                vm.write(success={deleting=null}) {ctx -> vm.api.deleteActivity(ctx.owner,log.id)}
+            }){Text("Xóa",color=UiDanger)}},
+            dismissButton={TextButton(enabled=!state.busy,onClick={deleting=null}){Text("Hủy")}})
     }
 }
 

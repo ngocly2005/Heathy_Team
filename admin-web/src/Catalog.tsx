@@ -1,8 +1,11 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
+import { useState } from 'react';
 import { BooleanInput, Create, CreateButton, Datagrid, DeleteWithConfirmButton, Edit, EditButton, ExportButton,
     FunctionField, List, ListButton, NullableBooleanInput, NumberField, NumberInput, SaveButton,
-    SimpleForm, TextInput, Toolbar, TopToolbar, maxValue, minValue, required, type RaRecord } from 'react-admin';
+    SimpleForm, TextInput, Toolbar, TopToolbar, maxValue, minValue, required, useNotify, useRecordContext,
+    type RaRecord } from 'react-admin';
 import { AdminIcon, AdminPage, StatusBadge } from './AdminUi';
+import { api } from './api';
 
 type CatalogRow = RaRecord & { name: string; is_active: boolean };
 const filters = [
@@ -60,6 +63,35 @@ function FoodFields() {
     </Box>;
 }
 
+function FoodImageInput() {
+    const record = useRecordContext<CatalogRow & { has_image?: boolean }>();
+    const notify = useNotify();
+    const [busy, setBusy] = useState(false);
+    const [uploaded, setUploaded] = useState(false);
+    if (!record) return null;
+    return <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Button component="label" variant="outlined" disabled={busy}>
+            {busy ? 'Đang tải ảnh…' : record.has_image || uploaded ? 'Đổi ảnh món ăn' : 'Thêm ảnh món ăn'}
+            <input hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={async event => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = '';
+                if (!file) return;
+                if (file.size > 8 * 1024 * 1024) { notify('Ảnh tối đa 8 MB.', { type: 'warning' }); return; }
+                const form = new FormData(); form.append('image', file);
+                setBusy(true);
+                try {
+                    await api(`/admin/foods/${record.id}/image`, { method: 'PUT', body: form });
+                    setUploaded(true);
+                    notify('Đã lưu ảnh trên máy chủ.', { type: 'success' });
+                } catch (error) {
+                    notify(error instanceof Error ? error.message : 'Không tải được ảnh.', { type: 'error' });
+                } finally { setBusy(false); }
+            }} />
+        </Button>
+        <Typography variant="body2" color="text.secondary">JPEG, PNG hoặc WebP. Ảnh sẽ hiện trong app Android.</Typography>
+    </Box>;
+}
+
 export function FoodCreate() {
     return <AdminPage title="Thêm thực phẩm" description="Thêm tên và giá trị dinh dưỡng của thực phẩm vào danh mục chung." icon="food">
         <Create title="Thêm thực phẩm" actions={<TopToolbar><ListButton label="Về danh sách" /></TopToolbar>}>
@@ -71,7 +103,7 @@ export function FoodCreate() {
 export function FoodEdit() {
     return <AdminPage title="Sửa thực phẩm" description="Cập nhật thông tin và trạng thái sử dụng của thực phẩm." icon="food">
         <Edit title="Sửa thực phẩm" mutationMode="pessimistic" actions={<TopToolbar><ListButton label="Về danh sách" /></TopToolbar>}>
-            <SimpleForm toolbar={<CatalogToolbar />}><FoodFields /></SimpleForm>
+            <SimpleForm toolbar={<CatalogToolbar />}><FoodFields /><FoodImageInput /></SimpleForm>
         </Edit>
     </AdminPage>;
 }

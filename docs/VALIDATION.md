@@ -1,5 +1,17 @@
 # Kiểm chứng tích hợp
 
+## 2026-11-17 — Vận động, bữa ăn cá nhân và ảnh món ăn
+
+- Android: **91 JVM tests đạt**, tạo APK debug và chạy lint. Kiểm tra wire DTO
+  khi món catalog và món riêng có cùng số ID nhưng thuộc hai nguồn khác nhau.
+- Backend: **59 HTTP tests đạt** trên SQLite bộ nhớ, gồm quyền sở hữu món/ảnh,
+  CRUD, snapshot món trong nhật ký và bữa lưu, ảnh local và lịch sử vận động.
+  Một Alembic head `20261117_0013`; SQL PostgreSQL được sinh offline.
+- React Admin: **12 tests đạt** và build production thành công; trang sửa thực
+  phẩm có thể tải ảnh lên BE. Ảnh không nằm trong Git hoặc dịch vụ bên thứ ba.
+- Chưa thử nâng cấp PostgreSQL thật, Android trên emulator/điện thoại hay tải
+  ảnh qua mạng của giáo viên. Cần chạy migration mới trước khi dùng FE cập nhật.
+
 ## 2026-11-15 — Tự khôi phục đọc dữ liệu, cảnh báo mục tiêu và lối vào chat
 
 - Android: **90 JVM tests** thành công; `assembleDebug` và `lintDebug` thành công,

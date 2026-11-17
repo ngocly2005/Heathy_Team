@@ -2,13 +2,15 @@ package com.app_health.app.feature.integrated
 
 import com.app_health.app.core.network.SessionRequestTag
 import okhttp3.MultipartBody
+import okhttp3.ResponseBody
 import retrofit2.http.*
 
 // Wire names intentionally match the shared OpenAPI contract.
 data class ProfileDto(val birth_date: String, val sex: String, val height_cm: Double, val weight_kg: Double,
     val activity_level: String, val goal: String, val age: Int, val bmi: Double, val bmr_kcal: Double, val tdee_kcal: Double)
 data class FoodDto(val id: Long, val name: String, val calories_per_100g: Double,
-    val protein_per_100g: Double, val carb_per_100g: Double, val fat_per_100g: Double)
+    val protein_per_100g: Double, val carb_per_100g: Double, val fat_per_100g: Double,
+    val is_custom: Boolean = false, val has_image: Boolean = false)
 data class FoodLogDto(val id: Long, val food_id: Long?, val log_date: String, val meal_type: String,
     val meal_time: String?, val grams: Double, val food_name: String, val calories_kcal: Double,
     val protein_g: Double, val carb_g: Double, val fat_g: Double)
@@ -51,10 +53,23 @@ interface AppApi {
     @GET("api/v1/nutrition-settings") suspend fun nutrition(@Tag owner: SessionRequestTag): NutritionDto
     @PUT("api/v1/nutrition-settings") suspend fun saveNutrition(@Tag owner: SessionRequestTag, @Body value: Map<String, @JvmSuppressWildcards Any?>): NutritionDto
     @GET("api/v1/foods") suspend fun foods(@Tag owner: SessionRequestTag, @Query("q") query: String): List<FoodDto>
+    @GET("api/v1/custom-foods") suspend fun customFoods(@Tag owner: SessionRequestTag): List<FoodDto>
+    @POST("api/v1/custom-foods") suspend fun createCustomFood(@Tag owner: SessionRequestTag,
+        @Body value: Map<String, @JvmSuppressWildcards Any?>): FoodDto
+    @PUT("api/v1/custom-foods/{id}") suspend fun editCustomFood(@Tag owner: SessionRequestTag, @Path("id") id: Long,
+        @Body value: Map<String, @JvmSuppressWildcards Any?>): FoodDto
+    @DELETE("api/v1/custom-foods/{id}") suspend fun deleteCustomFood(@Tag owner: SessionRequestTag, @Path("id") id: Long)
+    @Multipart @PUT("api/v1/custom-foods/{id}/image") suspend fun uploadCustomFoodImage(@Tag owner: SessionRequestTag,
+        @Path("id") id: Long, @Part image: MultipartBody.Part): Map<String, Boolean>
+    @DELETE("api/v1/custom-foods/{id}/image") suspend fun deleteCustomFoodImage(@Tag owner: SessionRequestTag, @Path("id") id: Long)
+    @GET("api/v1/foods/{id}/image") suspend fun catalogFoodImage(@Tag owner: SessionRequestTag, @Path("id") id: Long): ResponseBody
+    @GET("api/v1/custom-foods/{id}/image") suspend fun customFoodImage(@Tag owner: SessionRequestTag, @Path("id") id: Long): ResponseBody
     @POST("api/v1/food-logs") suspend fun addFood(@Tag owner: SessionRequestTag, @Body value: Map<String, @JvmSuppressWildcards Any?>): FoodLogDto
     @PUT("api/v1/food-logs/{id}") suspend fun editFood(@Tag owner: SessionRequestTag, @Path("id") id: Long, @Body value: Map<String, @JvmSuppressWildcards Any?>): FoodLogDto
     @DELETE("api/v1/food-logs/{id}") suspend fun deleteFood(@Tag owner: SessionRequestTag, @Path("id") id: Long)
     @GET("api/v1/activity-types") suspend fun activities(@Tag owner: SessionRequestTag): List<ActivityDto>
+    @GET("api/v1/activity-logs") suspend fun activityHistory(@Tag owner: SessionRequestTag,
+        @Query("limit") limit: Int = 100, @Query("offset") offset: Int = 0): List<ActivityLogDto>
     @POST("api/v1/activity-logs") suspend fun addActivity(@Tag owner: SessionRequestTag, @Body value: Map<String, @JvmSuppressWildcards Any?>): ActivityLogDto
     @PUT("api/v1/activity-logs/{id}") suspend fun editActivity(@Tag owner: SessionRequestTag, @Path("id") id: Long, @Body value: Map<String, @JvmSuppressWildcards Any?>): ActivityLogDto
     @DELETE("api/v1/activity-logs/{id}") suspend fun deleteActivity(@Tag owner: SessionRequestTag, @Path("id") id: Long)

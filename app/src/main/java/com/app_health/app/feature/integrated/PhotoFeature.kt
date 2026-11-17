@@ -44,7 +44,7 @@ import java.util.UUID
 
 fun photoFeature() = AppFeature("photo", "Chụp món ăn") { vm, _ -> PhotoScreen(vm) }
 
-private fun normalizedPhoto(context: Context, uri: Uri): ByteArray {
+internal fun normalizedPhoto(context: Context, uri: Uri): ByteArray {
     val resolver = context.contentResolver
     val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     resolver.openInputStream(uri).use { requireNotNull(it); BitmapFactory.decodeStream(it, null, options) }

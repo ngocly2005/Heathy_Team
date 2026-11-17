@@ -20,17 +20,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import com.app_health.app.core.network.retryTransientRead
+import com.app_health.app.core.network.toUserMessage
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 
 fun mealsFeature() = AppFeature("meals", "Thực đơn đã lưu", load = { vm, ctx ->
     val meals = vm.api.meals(ctx.owner)
     vm.publish(ctx) { it.copy(meals = meals) }
 }) { vm, navigate -> MealsScreen(vm, navigate) }
-
-private fun snapshot(item: SavedItemDto, grams: Double = item.grams): Map<String, Any?> = mapOf(
-    "food_id" to null, "food_name" to item.food_name, "grams" to grams,
-    "calories_per_100g" to item.calories_per_100g, "protein_per_100g" to item.protein_per_100g,
-    "carb_per_100g" to item.carb_per_100g, "fat_per_100g" to item.fat_per_100g
-)
 
 @Composable
 fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
@@ -40,17 +40,24 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
     var time by rememberSaveable { mutableStateOf(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))) }
     var deleting by rememberSaveable { mutableStateOf<Long?>(null) }
     var editing by remember { mutableStateOf<SavedMealDto?>(null) }
-    var editName by rememberSaveable { mutableStateOf("") }
-    var editGrams by remember { mutableStateOf<List<String>>(emptyList()) }
+    var creating by remember { mutableStateOf(false) }
     val logs = state.dashboard?.food_logs ?: emptyList()
     var chosen by remember(state.date, logs.map { it.id }) { mutableStateOf(logs.map { it.id }.toSet()) }
     val selected = logs.filter { it.id in chosen }
     val enabled = !state.busy && !state.loading && !state.uncertain
     val largeText = LocalDensity.current.fontScale > 1.3f
 
+    if (creating || editing != null) {
+        MealComposerScreen(vm, editing, onClose = { creating = false; editing = null })
+        return
+    }
+
     HealthPage {
         HealthHeader("Thực đơn đã lưu", "Lưu và quản lý các bữa ăn yêu thích của bạn", Icons.Default.Bookmarks,
             onBack = { if (!state.busy) navigate("home") })
+        Button(enabled = enabled, onClick = { creating = true }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Tạo bữa ăn từ các món của tôi")
+        }
         DateStrip(vm)
         HealthCard(title = "Chọn bữa ăn & giờ ăn") {
             Text("Dùng cho lần thêm nhanh vào nhật ký ngày ${uiDate(state.date.toString())}.",
@@ -61,7 +68,7 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
         if (!state.loading && state.error == null && state.meals.isEmpty()) {
             HealthCard(title = "Bữa ăn yêu thích") {
                 UiEmptyState(Icons.Default.BookmarkBorder, "Chưa có bữa ăn đã lưu",
-                    "Chọn các món từ nhật ký bên dưới để tạo bữa ăn của bạn.", "Tìm món ăn", enabled) { navigate("food") }
+                    "Tự chọn món từ danh mục hoặc lưu các món trong nhật ký bên dưới.", "Tạo bữa ăn", enabled) { creating = true }
             }
         }
 
@@ -93,7 +100,7 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                 }) { Icon(Icons.Default.Bolt, null); Spacer(Modifier.width(6.dp)); Text("Thêm nhanh vào nhật ký") }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(enabled = enabled, modifier = Modifier.weight(1f), onClick = {
-                        editing = saved; editName = saved.name; editGrams = saved.items.map { uiEditNumber(it.grams) }
+                        editing = saved
                     }, border = BorderStroke(1.dp, Border)) {
                         Icon(Icons.Default.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Sửa")
                     }
@@ -188,23 +195,96 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             }) { Text("Xóa", color = UiDanger) } },
             dismissButton = { TextButton(enabled = !state.busy, onClick = { deleting = null }) { Text("Hủy") } })
     }
-    editing?.let { saved ->
-        val valid = editName.isNotBlank() && editGrams.size == saved.items.size &&
-            editGrams.all { inputNumber(it)?.let { n -> n >= 0.01 && n <= 10000 } == true }
-        AlertDialog(onDismissRequest = { if (!state.busy) editing = null }, title = { Text("Sửa bữa đã lưu") },
-            text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(editName, { editName = it.take(120) }, label = { Text("Tên bữa") }, enabled = enabled, modifier = Modifier.fillMaxWidth())
-                saved.items.forEachIndexed { i, item ->
-                    NumberInput("${item.food_name} (g)", editGrams.getOrElse(i) { "" }, enabled) { value ->
-                        editGrams = editGrams.toMutableList().apply { set(i, value) }
+}
+
+private data class MealDraft(val name: String, val grams: String, val calories: Double,
+    val protein: Double, val carbs: Double, val fat: Double) {
+    fun payload(): Map<String, Any?> = mapOf("food_id" to null, "food_name" to name,
+        "grams" to inputNumber(grams)!!, "calories_per_100g" to calories,
+        "protein_per_100g" to protein, "carb_per_100g" to carbs, "fat_per_100g" to fat)
+}
+
+@Composable
+private fun MealComposerScreen(vm: AppViewModel, saved: SavedMealDto?, onClose: () -> Unit) {
+    val state by vm.state.collectAsState()
+    var name by remember(saved?.id) { mutableStateOf(saved?.name ?: "") }
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<FoodDto>>(emptyList()) }
+    var searching by remember { mutableStateOf(false) }
+    val rows = remember(saved?.id) { mutableStateListOf<MealDraft>().apply {
+        saved?.items?.forEach { item -> add(MealDraft(item.food_name, uiEditNumber(item.grams),
+            item.calories_per_100g, item.protein_per_100g, item.carb_per_100g, item.fat_per_100g)) }
+    } }
+    val enabled = !state.busy && !state.loading && !state.uncertain
+    LaunchedEffect(query, state.readRevision, state.route, state.busy, state.loading) {
+        if (state.busy || state.loading || state.route != "meals") return@LaunchedEffect
+        searching = true
+        delay(250)
+        val ctx = vm.context()
+        try {
+            val found = retryTransientRead(checkCurrent = {
+                if (!vm.valid(ctx)) throw CancellationException("Screen changed")
+            }) { vm.api.foods(ctx.owner, query.trim()) }
+            if (vm.valid(ctx)) results = found
+        } catch (e: CancellationException) { throw e
+        } catch (e: Exception) { currentCoroutineContext().ensureActive(); vm.showError(e.toUserMessage(), ctx)
+        } finally { searching = false }
+    }
+    val valid = name.isNotBlank() && rows.size in 1..30 && rows.all {
+        inputNumber(it.grams)?.let { n -> n in 0.01..10000.0 } == true
+    }
+    HealthPage {
+        HealthHeader(if (saved == null) "Tạo bữa ăn" else "Sửa bữa ăn", "Chọn món và khẩu phần cho công thức của bạn",
+            Icons.Default.RestaurantMenu, onBack = { if (enabled) onClose() })
+        OutlinedTextField(name, { name = it.take(120) }, label = { Text("Tên bữa ăn") },
+            singleLine = true, enabled = enabled, modifier = Modifier.fillMaxWidth())
+        HealthCard(title = "Các món đã chọn (${rows.size}/30)") {
+            if (rows.isEmpty()) Text("Tìm món bên dưới rồi bấm Thêm.", color = Muted)
+            rows.forEachIndexed { index, item ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text(item.name, color = Ink, fontWeight = FontWeight.SemiBold)
+                        NumberInput("Khẩu phần (g)", item.grams, enabled) { value ->
+                            rows[index] = item.copy(grams = value)
+                        }
+                    }
+                    IconButton(onClick = { rows.removeAt(index) }, enabled = enabled) {
+                        Icon(Icons.Default.DeleteOutline, "Bỏ ${item.name}", tint = UiDanger)
                     }
                 }
-                Text("Khẩu phần hợp lệ: 0,01–10.000 g.", color = Muted, style = MaterialTheme.typography.bodySmall)
-            } },
-            confirmButton = { TextButton(enabled = enabled && valid, onClick = {
-                val items = saved.items.mapIndexed { i, item -> snapshot(item, inputNumber(editGrams[i])!!) }
-                vm.write(success = { editing = null }) { ctx -> vm.api.editMeal(ctx.owner, saved.id, mapOf("name" to editName.trim(), "items" to items)) }
-            }) { Text("Lưu") } },
-            dismissButton = { TextButton(enabled = !state.busy, onClick = { editing = null }) { Text("Hủy") } })
+                Text("${(item.calories * (inputNumber(item.grams) ?: 0.0) / 100).display()} kcal", color = Muted)
+                HorizontalDivider(color = Border)
+            }
+            Button(enabled = enabled && valid, modifier = Modifier.fillMaxWidth(), onClick = {
+                val payload = mapOf("name" to name.trim(), "items" to rows.map { it.payload() })
+                vm.write(success = onClose) { ctx ->
+                    if (saved == null) vm.api.saveMeal(ctx.owner, payload)
+                    else vm.api.editMeal(ctx.owner, saved.id, payload)
+                }
+            }) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Lưu bữa ăn") }
+        }
+        HealthCard(title = "Thêm món từ danh mục") {
+            OutlinedTextField(query, { query = it.take(100) }, label = { Text("Tìm món") },
+                enabled = enabled, singleLine = true, modifier = Modifier.fillMaxWidth())
+            if (searching) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (!searching && results.isEmpty()) Text("Không tìm thấy món phù hợp.", color = Muted)
+            results.forEach { food ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FoodPhoto(vm, food, Modifier.size(48.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(food.name, color = Ink)
+                        Text("${food.calories_per_100g.display()} kcal / 100 g", color = Muted)
+                    }
+                    IconButton(enabled = enabled && rows.size < 30, onClick = {
+                        rows.add(MealDraft(food.name, "100", food.calories_per_100g,
+                            food.protein_per_100g, food.carb_per_100g, food.fat_per_100g))
+                    }) { Icon(Icons.Default.Add, "Thêm ${food.name}") }
+                }
+            }
+        }
+        Text("Muốn tạo món riêng? Vào Trang chủ → Tìm món ăn → Tạo món, rồi quay lại đây.",
+            color = Muted, style = MaterialTheme.typography.bodySmall)
     }
 }

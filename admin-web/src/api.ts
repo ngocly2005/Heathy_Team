@@ -29,7 +29,7 @@ async function raw(path: string, init: RequestInit = {}) {
     const timeout = setTimeout(() => controller.abort(), 40000);
     try {
         return await fetch(`${origin.origin}/api/v1${path}`, { ...init, redirect: 'error', credentials: 'omit', signal: controller.signal,
-            headers: { 'Content-Type': 'application/json', ...init.headers } });
+            headers: { ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...init.headers } });
     } catch {
         throw new HttpError(init.method && init.method !== 'GET'
             ? 'Chưa rõ kết quả yêu cầu. Tải lại dữ liệu trước khi thao tác tiếp.' : 'Không kết nối được máy chủ.', 0);

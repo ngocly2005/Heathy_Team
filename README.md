@@ -2,7 +2,7 @@
 
 Bản UI chính để giáo viên push vào `ngocly2005/Heathy_Team`, học sinh pull về.
 Backend tương ứng là repo riêng `ngocly2005/App_Heathy_BE`; cần source tích hợp
-và migration head `20261113_0012`. Xem [cấu hình](docs/SETUP.md) trước khi chạy.
+và migration head `20261117_0013`. Xem [cấu hình](docs/SETUP.md) trước khi chạy.
 
 Lịch đầy đủ mới có **32 task FE/BE**: xem [đối chiếu tính năng và lịch dự kiến](docs/SPRINT_AUDIT_20261113.md)
 và [bảng lịch CSV](docs/SPRINT_SCHEDULE_20261113.csv). Mã S*-T* dưới là mã chia cũ;
@@ -21,6 +21,12 @@ Học sinh dùng [hướng dẫn UI đủ 32 task của 3 sprint](docs/HUONG_DAN
 để tìm đường vào Android/Admin web và kết quả cần kiểm tra cho từng cặp FE/BE.
 Màn mục tiêu hiện [cảnh báo sức khỏe tham khảo](docs/CANH_BAO_MUC_TIEU_20261115.md);
 chat AI mở nhanh bằng nút **+ → Tư vấn bữa ăn với AI**.
+
+Đợt 17/11: Vận động có **Xem nhật ký** để xem/sửa/xóa hoạt động; **Tìm món ăn →
+Tạo món** tạo món riêng và chọn ảnh; **Thực đơn đã lưu → Tạo bữa ăn từ các món
+của tôi** chọn món trực tiếp, chỉnh thành phần, lưu và thêm nhanh. Ảnh món
+được giữ trên ổ đĩa backend; món catalog chỉ hiện ảnh sau khi Admin tải ảnh lên.
+Admin web: **Thực phẩm → Sửa → Thêm/Đổi ảnh món ăn**.
 
 Giao diện các màn có trong 17 ảnh Figma đã được cập nhật ngày 13/11/2026.
 Xem [bảng đối chiếu và các chi tiết thiết kế được bỏ qua](docs/UI_FIGMA_20261113.md).
