@@ -43,6 +43,7 @@ data class ChatHistoryDto(val id: Long, val question: String?, val response: Cha
 data class PhotoItemDto(val name: String, val estimated_grams: Double, val calories_kcal: Double,
     val protein_g: Double, val carb_g: Double, val fat_g: Double, val confidence: Double)
 data class PhotoDto(val items: List<PhotoItemDto>, val notes: String, val disclaimer: String)
+data class PhotoHistoryDto(val id: Long, val status: String, val analysis: PhotoDto?, val error_code: Int?)
 data class PhotoDraft(val name: String, val grams: String, val calories: String, val protein: String,
     val carbs: String, val fat: String, val confidence: Double)
 
@@ -93,5 +94,7 @@ interface AppApi {
     @GET("api/v1/ai/chat/history") suspend fun chatHistory(@Tag owner: SessionRequestTag, @Query("before_id") before: Long? = null): List<ChatHistoryDto>
     @POST("api/v1/ai/chat") suspend fun chat(@Tag owner: SessionRequestTag, @Body value: Map<String, @JvmSuppressWildcards Any?>): ChatAnswerDto
     @Multipart @POST("api/v1/ai/photo/analyze") suspend fun analyze(@Tag owner: SessionRequestTag, @Query("date") date: String, @Part image: MultipartBody.Part): PhotoDto
+    @GET("api/v1/ai/photo/latest") suspend fun latestPhoto(@Tag owner: SessionRequestTag,
+        @Query("date") date: String): PhotoHistoryDto?
     @POST("api/v1/ai/photo/confirm") suspend fun confirm(@Tag owner: SessionRequestTag, @Body value: Map<String, @JvmSuppressWildcards Any?>): Map<String, List<FoodLogDto>>
 }

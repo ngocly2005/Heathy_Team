@@ -31,7 +31,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun enter(route: String) = data.enter(route)
     fun chooseDate(date: LocalDate) = data.chooseDate(date)
     fun refresh() = data.refresh()
-    fun write(success: () -> Unit = {}, operation: suspend (RequestContext) -> Unit) = data.write(success, operation)
+    fun dismissUncertain() = data.dismissUncertain()
+    fun write(
+        success: () -> Unit = {},
+        reconcile: (suspend (RequestContext) -> Boolean)? = null,
+        operation: suspend (RequestContext) -> Unit
+    ) = data.write(success, reconcile, operation)
     fun read(operation: suspend (RequestContext) -> Unit) = data.read(operation)
     fun setPhoto(bytes: ByteArray, mime: String) = data.setPhoto(bytes, mime)
 }

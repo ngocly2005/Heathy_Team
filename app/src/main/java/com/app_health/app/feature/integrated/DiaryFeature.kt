@@ -42,8 +42,9 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
     val enabled = !state.busy && !state.loading && !state.uncertain
     val largeText = LocalDensity.current.fontScale > 1.3f
 
-    FigmaPage {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    FigmaPage(background = Color(0xFFE9F8F3)) {
+        Surface(color = Color(0xFFDDF5EB), shape = RoundedCornerShape(22.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(enabled = enabled, onClick = { vm.chooseDate(state.date.minusDays(1)) }) { Icon(Icons.Default.ChevronLeft, "Ngày trước") }
             TextButton(enabled = !state.busy, onClick = { navigate("calendar") }, modifier = Modifier.weight(1f)) {
                 Text(if (state.date == LocalDate.now()) "Hôm nay" else uiDate(state.date.toString()),
@@ -52,6 +53,7 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             }
             IconButton(enabled = enabled && state.date < LocalDate.now(), onClick = { vm.chooseDate(state.date.plusDays(1)) }) { Icon(Icons.Default.ChevronRight, "Ngày sau") }
         }
+        }
         if (day == null) {
             FigmaCard {
                 Text(if (state.loading) "Đang tải nhật ký…" else "Chưa tải được dữ liệu ngày đã chọn.", color = Muted)
@@ -59,6 +61,7 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             }
         } else {
             FigmaMacroStrip(state) { navigate("macros") }
+            MacroIntakeWarning(state)
             day.weight?.let { Text("Số đo ngày này: ${it.weight_kg.display()} kg", color = FigmaMuted, style = MaterialTheme.typography.bodySmall) }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Món ăn", Modifier.weight(1f), color = FigmaInk, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -71,17 +74,18 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                 val groups = day.dashboard.food_logs.sortedWith(compareBy<FoodLogDto> { it.meal_time ?: "99:99" }.thenBy { it.id })
                     .groupBy { it.meal_time?.take(2) }
                 groups.forEach { (hour, foods) ->
-                    FigmaCard {
+                    Surface(color = Color(0xFFDDF5EB), shape = RoundedCornerShape(16.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(hour?.let { "$it:00" } ?: "Chưa có giờ ăn", Modifier.weight(1f), color = FigmaInk, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.AccessTime, null, Modifier.padding(start = 12.dp).size(18.dp), tint = Mint)
+                            Text(hour?.let { "$it:00" } ?: "Chưa có giờ ăn", Modifier.weight(1f).padding(12.dp), color = FigmaInk, fontWeight = FontWeight.Bold)
                             Icon(Icons.Default.LocalFireDepartment, null, tint = Color(0xFFFF9147), modifier = Modifier.size(15.dp))
-                            Text("${foods.sumOf { it.calories_kcal }.uiNumber()} kcal", color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
+                            Text("${foods.sumOf { it.calories_kcal }.uiNumber()} kcal", Modifier.padding(end = 12.dp), color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     foods.forEach { food ->
                         FigmaCard {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Surface(color = Color(0xFFF5F6F8), shape = RoundedCornerShape(12.dp)) {
+                                Surface(color = Color(0xFFE9F8F3), shape = RoundedCornerShape(12.dp)) {
                                     Icon(Icons.Default.RamenDining, null, Modifier.padding(12.dp).size(24.dp), tint = Color(0xFFE6A24A))
                                 }
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -138,15 +142,22 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(enabled = enabled && water != null && total > 0, modifier = Modifier.weight(1f),
-                        onClick = { water?.let { setting -> vm.write { ctx ->
-                            vm.api.adjustWater(ctx.owner, mapOf("log_date" to ctx.date, "amount_ml" to -setting.serving_ml))
-                        } } }) {
+                        onClick = { water?.let { setting ->
+                            val delta = -setting.serving_ml
+                            vm.write(reconcile = { ctx -> vm.api.dashboard(ctx.owner, ctx.date).water_ml ==
+                                (total + delta).coerceAtLeast(0) }) { ctx ->
+                                vm.api.adjustWater(ctx.owner, mapOf("log_date" to ctx.date, "amount_ml" to delta))
+                            }
+                        } }) {
                         Icon(Icons.Default.Remove, null); Spacer(Modifier.width(5.dp)); Text("${water?.serving_ml ?: "—"} ml")
                     }
                     Button(enabled = enabled && water != null, modifier = Modifier.weight(1f),
-                        onClick = { water?.let { setting -> vm.write { ctx ->
-                            vm.api.adjustWater(ctx.owner, mapOf("log_date" to ctx.date, "amount_ml" to setting.serving_ml))
-                        } } }) {
+                        onClick = { water?.let { setting ->
+                            val delta = setting.serving_ml
+                            vm.write(reconcile = { ctx -> vm.api.dashboard(ctx.owner, ctx.date).water_ml == total + delta }) { ctx ->
+                                vm.api.adjustWater(ctx.owner, mapOf("log_date" to ctx.date, "amount_ml" to delta))
+                            }
+                        } }) {
                         Icon(Icons.Default.Add, null); Spacer(Modifier.width(5.dp)); Text("${water?.serving_ml ?: "—"} ml")
                     }
                 }
@@ -176,7 +187,14 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                 }
                 if (note.isBlank()) Text("Viết ghi chú để lưu cùng tâm trạng.", color = Muted, style = MaterialTheme.typography.bodySmall)
                 Button(enabled = enabled && note.isNotBlank(), modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), onClick = {
-                    vm.write { ctx -> vm.api.saveDiary(ctx.owner, ctx.date, mapOf("content" to note.trim(), "mood" to mood.trim().ifBlank { null })) }
+                    val content = note.trim()
+                    val selectedMood = mood.trim().ifBlank { null }
+                    vm.write(reconcile = { ctx ->
+                        vm.api.daily(ctx.owner, ctx.date).diary?.let {
+                            it.content == content && it.mood == selectedMood
+                        } == true
+                    }) { ctx -> vm.api.saveDiary(ctx.owner, ctx.date,
+                        mapOf("content" to content, "mood" to selectedMood)) }
                 }) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Lưu ghi chú") }
                 if (day.diary != null) TextButton(enabled = enabled, onClick = { deleting = "note" },
                     colors = ButtonDefaults.textButtonColors(contentColor = UiDanger)) { Text("Xóa ghi chú") }
@@ -202,10 +220,35 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                 if (kind == "food") UiMealPicker(meal, time, enabled, { meal = it }, { time = it }, allowEmptyTime = true)
             } },
             confirmButton = { TextButton(enabled = enabled && valid, onClick = {
-                vm.write(success = { editing = null }) { ctx -> when (kind) {
-                    "food" -> vm.api.editFood(ctx.owner, itemId, mapOf("grams" to number, "meal_type" to meal, "meal_time" to time.ifBlank { null }))
-                    "activity" -> vm.api.editActivity(ctx.owner, itemId, mapOf("duration_minutes" to amount.toInt()))
-                    else -> vm.api.editWater(ctx.owner, itemId, mapOf("amount_ml" to amount.toInt()))
+                val editKind = kind
+                val editId = itemId
+                val expectedGrams = number
+                val expectedMinutesOrMl = amount.toIntOrNull()
+                val expectedMeal = meal
+                val expectedTime = time.ifBlank { null }
+                vm.write(success = { editing = null }, reconcile = { ctx ->
+                    val updated = vm.api.daily(ctx.owner, ctx.date)
+                    val found = when (editKind) {
+                        "food" -> updated.dashboard.food_logs.any {
+                            it.id == editId && expectedGrams != null &&
+                                kotlin.math.abs(it.grams - expectedGrams) < 0.011 &&
+                                it.meal_type == expectedMeal && it.meal_time == expectedTime
+                        }
+                        "activity" -> updated.dashboard.activity_logs.any {
+                            it.id == editId && it.duration_minutes == expectedMinutesOrMl
+                        }
+                        else -> updated.water_logs.any {
+                            it.id == editId && it.amount_ml == expectedMinutesOrMl
+                        }
+                    }
+                    if (found) editing = null
+                    found
+                }) { ctx -> when (editKind) {
+                    "food" -> vm.api.editFood(ctx.owner, editId, mapOf("grams" to expectedGrams,
+                        "meal_type" to expectedMeal, "meal_time" to expectedTime))
+                    "activity" -> vm.api.editActivity(ctx.owner, editId,
+                        mapOf("duration_minutes" to expectedMinutesOrMl))
+                    else -> vm.api.editWater(ctx.owner, editId, mapOf("amount_ml" to expectedMinutesOrMl))
                 } }
             }) { Text("Lưu") } },
             dismissButton = { TextButton(enabled = !state.busy, onClick = { editing = null }) { Text("Hủy") } })
@@ -214,10 +257,22 @@ fun DiaryScreen(vm: AppViewModel, navigate: (String) -> Unit) {
         AlertDialog(onDismissRequest = { if (!state.busy) deleting = null }, title = { Text("Xóa mục đã chọn?") },
             text = { Text("Dữ liệu tổng quan của ngày sẽ được cập nhật sau khi xóa.") },
             confirmButton = { TextButton(enabled = enabled, onClick = {
-                vm.write(success = { deleting = null }) { ctx -> when (kind) {
-                    "food" -> vm.api.deleteFood(ctx.owner, itemId)
-                    "activity" -> vm.api.deleteActivity(ctx.owner, itemId)
-                    "water" -> vm.api.deleteWater(ctx.owner, itemId)
+                val deleteKind = kind
+                val deleteId = itemId
+                vm.write(success = { deleting = null }, reconcile = { ctx ->
+                    val updated = vm.api.daily(ctx.owner, ctx.date)
+                    val gone = when (deleteKind) {
+                        "food" -> updated.dashboard.food_logs.none { it.id == deleteId }
+                        "activity" -> updated.dashboard.activity_logs.none { it.id == deleteId }
+                        "water" -> updated.water_logs.none { it.id == deleteId }
+                        else -> updated.diary == null
+                    }
+                    if (gone) deleting = null
+                    gone
+                }) { ctx -> when (deleteKind) {
+                    "food" -> vm.api.deleteFood(ctx.owner, deleteId)
+                    "activity" -> vm.api.deleteActivity(ctx.owner, deleteId)
+                    "water" -> vm.api.deleteWater(ctx.owner, deleteId)
                     else -> vm.api.deleteDiary(ctx.owner, ctx.date)
                 } }
             }) { Text("Xóa", color = UiDanger) } },

@@ -79,6 +79,7 @@ fun HomeScreen(vm: AppViewModel, navigate: (String) -> Unit) {
         }
         state.dashboard?.let { day ->
             CalorieSummaryCard(day)
+            MacroIntakeWarning(state)
             FigmaMacroStrip(state) { navigate("macros") }
             FigmaTitle("Nhật ký gần đây")
             FigmaCard {
@@ -160,10 +161,16 @@ private fun HomeWaterCard(vm: AppViewModel) {
                 Text("${(day.water_ml / 1000.0).uiNumber(2)} / ${(settings.effective_target_ml / 1000.0).uiNumber(2)} Lít", color = FigmaInk, fontWeight = FontWeight.Bold)
             }
             FilledTonalIconButton(enabled = enabled && day.water_ml > 0, onClick = {
-                vm.write { ctx -> vm.api.adjustWater(ctx.owner, mapOf("log_date" to ctx.date, "amount_ml" to -settings.serving_ml)) }
+                val expected = (day.water_ml - settings.serving_ml).coerceAtLeast(0)
+                vm.write(reconcile = { ctx -> vm.api.dashboard(ctx.owner, ctx.date).water_ml == expected }) { ctx ->
+                    vm.api.adjustWater(ctx.owner, mapOf("log_date" to ctx.date, "amount_ml" to -settings.serving_ml))
+                }
             }) { Icon(Icons.Default.Remove, "Giảm một ly nước") }
             FilledTonalIconButton(enabled = enabled, onClick = {
-                vm.write { ctx -> vm.api.adjustWater(ctx.owner, mapOf("log_date" to ctx.date, "amount_ml" to settings.serving_ml)) }
+                val expected = day.water_ml + settings.serving_ml
+                vm.write(reconcile = { ctx -> vm.api.dashboard(ctx.owner, ctx.date).water_ml == expected }) { ctx ->
+                    vm.api.adjustWater(ctx.owner, mapOf("log_date" to ctx.date, "amount_ml" to settings.serving_ml))
+                }
             }) { Icon(Icons.Default.Add, "Thêm một ly nước") }
         }
         HealthWarningPanel(waterIntakeWarnings(day.water_ml, settings.effective_target_ml))

@@ -15,7 +15,7 @@ import java.time.LocalDate
 
 data class AppState(
     val date: LocalDate = LocalDate.now(), val loading: Boolean = false, val busy: Boolean = false,
-    val error: String? = null, val uncertain: Boolean = false,
+    val error: String? = null, val uncertain: Boolean = false, val canDismissUncertain: Boolean = false,
     val profile: ProfileDto? = null, val dashboard: DashboardDto? = null, val nutrition: NutritionDto? = null,
     val water: WaterSettingsDto? = null, val foods: List<FoodDto> = emptyList(),
     val activities: List<ActivityDto> = emptyList(), val activityHistory: List<ActivityLogDto> = emptyList(),
@@ -48,6 +48,7 @@ internal class AppDataController(
     private var writeJob: Job? = null
     private val loaded = mutableSetOf<String>()
     private var uncertainRoute: String? = null
+    private var uncertainReconcile: (suspend (RequestContext) -> Boolean)? = null
     private var readErrorContext: RequestContext? = null
     var photoBytes: ByteArray? = null
         private set
@@ -69,6 +70,20 @@ internal class AppDataController(
         else -> listOf(route)
     }
 
+    /** Only an origin-related GET may clear an ambiguous write without a custom verifier. */
+    private fun defaultReconciliationReads(route: String): List<String> = when (route) {
+        "home", "macros" -> listOf("home")
+        "profile" -> listOf("profile")
+        "activity" -> listOf("activity")
+        "water" -> listOf("home", "water")
+        "meals" -> listOf("home", "meals")
+        "diary", "photo" -> listOf("diary")
+        "chat" -> listOf("chat")
+        // Search/custom-food writes need an operation-specific verifier.
+        "food", "calendar" -> emptyList()
+        else -> dependencies(route)
+    }
+
     fun activate() {
         val id = currentUserId() ?: return
         if (id == ownerId) return
@@ -84,6 +99,7 @@ internal class AppDataController(
         writeJob?.cancel()
         loaded.clear()
         uncertainRoute = null
+        uncertainReconcile = null
         readErrorContext = null
         photoBytes = null
         pendingChat = null
@@ -137,7 +153,7 @@ internal class AppDataController(
             mutable.update { it.copy(route = route, loading = false,
                 error = if (it.uncertain) it.error else null) }
         } else if (readJob?.isActive == true) return
-        if (!mutable.value.busy && !mutable.value.uncertain && !dependencies(route).all { it in loaded }) startLoad()
+        if (!mutable.value.busy && (mutable.value.uncertain || !dependencies(route).all { it in loaded })) startLoad()
     }
 
     fun chooseDate(date: LocalDate) {
@@ -158,6 +174,17 @@ internal class AppDataController(
         startLoad()
     }
 
+    /** Let the user continue only after a successful read found no matching write. */
+    fun dismissUncertain() {
+        if (ownerId == null || mutable.value.busy || mutable.value.loading ||
+            !mutable.value.uncertain || !mutable.value.canDismissUncertain) return
+        uncertainRoute = null
+        uncertainReconcile = null
+        loaded.clear()
+        mutable.update { it.copy(uncertain = false, canDismissUncertain = false, error = null) }
+        startLoad()
+    }
+
     private fun ensureCurrent(ctx: RequestContext) {
         if (!valid(ctx)) throw CancellationException("Account, date or screen changed")
     }
@@ -167,18 +194,40 @@ internal class AppDataController(
         readJob?.cancel()
         val ctx = context()
         readErrorContext = null
+        val reconciling = mutable.value.uncertain
+        val verifier = if (reconciling) uncertainReconcile else null
+        val requiredReads = if (reconciling) defaultReconciliationReads(uncertainRoute ?: ctx.route!!) else emptyList()
         val plan = buildList {
-            if (mutable.value.uncertain) {
-                // Reconcile a possibly committed mutation before allowing another write.
-                addAll(dependencies(uncertainRoute ?: ctx.route!!))
-                add("diary")
-            }
+            if (reconciling) addAll(requiredReads)
             addAll(dependencies(ctx.route!!))
         }.distinct()
-        mutable.update { it.copy(loading = true, error = null, readRevision = readRevision) }
+        mutable.update { it.copy(loading = true, error = null, canDismissUncertain = false,
+            readRevision = readRevision) }
         readJob = scope.launch {
             try {
                 var firstFailure: Exception? = null
+                var verified = false
+                var verifierReadCompleted = false
+                if (reconciling && verifier != null) {
+                    // A slow server may commit just after the first read. Poll the
+                    // read-only verifier briefly; never replay the original write.
+                    for (attempt in 0 until 3) {
+                        try {
+                            verified = retryTransientRead(checkCurrent = { ensureCurrent(ctx) }) { verifier(ctx) }
+                            currentCoroutineContext().ensureActive()
+                            ensureCurrent(ctx)
+                            verifierReadCompleted = true
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (failure: Exception) {
+                            currentCoroutineContext().ensureActive()
+                            ensureCurrent(ctx)
+                            firstFailure = failure
+                        }
+                        if (verified || firstFailure != null) break
+                        if (attempt < 2) delay(700)
+                    }
+                }
                 for (feature in plan) {
                     ensureCurrent(ctx)
                     if (feature !in loaded) {
@@ -198,9 +247,20 @@ internal class AppDataController(
                     }
                 }
                 ensureCurrent(ctx)
+                val reconciled = !reconciling || if (verifier != null) verified else
+                    requiredReads.isNotEmpty() && requiredReads.all { it in loaded }
+                if (reconciled) {
+                    uncertainRoute = null
+                    uncertainReconcile = null
+                    publish(ctx) { it.copy(uncertain = false, canDismissUncertain = false, error = null) }
+                }
+                if (!reconciled) publish(ctx) { it.copy(
+                    canDismissUncertain = if (verifier != null) verifierReadCompleted else
+                        requiredReads.isNotEmpty() && requiredReads.all { feature -> feature in loaded },
+                    error = if (firstFailure == null)
+                        "Chưa tìm thấy kết quả yêu cầu. Yêu cầu có thể còn đang xử lý; hãy kiểm tra dữ liệu trước khi thử lại."
+                    else "Chưa xác nhận được kết quả yêu cầu. Bấm Tải lại để đối chiếu trước khi gửi tiếp.") }
                 firstFailure?.let { throw it }
-                uncertainRoute = null
-                publish(ctx) { it.copy(uncertain = false, error = null) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -209,6 +269,8 @@ internal class AppDataController(
                 if (valid(ctx)) {
                     if (!mutable.value.uncertain) readErrorContext = ctx
                     publish(ctx) { it.copy(error = when {
+                        it.uncertain && it.canDismissUncertain ->
+                            "Đã đối chiếu yêu cầu nhưng dữ liệu phụ chưa tải được: ${error.toUserMessage()}. Kiểm tra dữ liệu trước khi thử lại."
                         it.uncertain -> "Chưa rõ kết quả yêu cầu. Chưa đối chiếu được dữ liệu: ${error.toUserMessage()}"
                         afterSave -> "Đã lưu. Chưa tải lại được dữ liệu: ${error.toUserMessage()}"
                         else -> error.toUserMessage()
@@ -220,7 +282,11 @@ internal class AppDataController(
         }
     }
 
-    fun write(success: () -> Unit = {}, operation: suspend (RequestContext) -> Unit) {
+    fun write(
+        success: () -> Unit = {},
+        reconcile: (suspend (RequestContext) -> Boolean)? = null,
+        operation: suspend (RequestContext) -> Unit
+    ) {
         if (mutable.value.busy || mutable.value.loading || mutable.value.uncertain || ownerId == null) return
         readRevision++
         readJob?.cancel()
@@ -231,6 +297,7 @@ internal class AppDataController(
         mutable.update { it.copy(busy = true, error = null) }
         writeJob = scope.launch {
             var saved = false
+            var unknown = false
             try {
                 operation(ctx)
                 currentCoroutineContext().ensureActive()
@@ -242,19 +309,21 @@ internal class AppDataController(
                 throw cancelled
             } catch (error: Exception) {
                 currentCoroutineContext().ensureActive()
-                val unknown = !saved && ((error is IOException && error !is ApiFailure) || error is JsonParseException ||
+                unknown = !saved && ((error is IOException && error !is ApiFailure) || error is JsonParseException ||
                     (error is HttpException && error.code() >= 500))
                 if (valid(ctx) && unknown) {
                     loaded.clear()
                     uncertainRoute = originRoute
+                    uncertainReconcile = reconcile
                 }
-                publish(ctx) { it.copy(uncertain = unknown, error = if (unknown)
-                    "Chưa rõ kết quả yêu cầu. Bấm Tải lại và kiểm tra dữ liệu trước khi gửi tiếp."
+                publish(ctx) { it.copy(uncertain = unknown, canDismissUncertain = false, error = if (unknown)
+                    "Chưa rõ kết quả yêu cầu. Đang đối chiếu dữ liệu trước khi gửi tiếp."
                     else error.toUserMessage()) }
             } finally {
                 if (valid(ctx)) {
                     mutable.update { it.copy(busy = false) }
                     if (saved) startLoad(afterSave = true)
+                    else if (unknown) startLoad()
                 }
             }
         }

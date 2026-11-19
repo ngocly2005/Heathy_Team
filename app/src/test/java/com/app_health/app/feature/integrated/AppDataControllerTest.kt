@@ -212,30 +212,99 @@ class AppDataControllerTest {
         assertEquals(1, backend.calls.count { it.first == "home" })
     }
 
-    @Test fun uncertainWriteStaysBlockedAcrossNavigationUntilReadReconciliationSucceeds() = runTest {
+    @Test fun ambiguousWriteIsNeverReplayedAndNeedsAConfirmedMatchingRead() = runTest {
         val backend = Backend(this)
         val data = backend.data
         data.enter("food")
         var writes = 0
-        data.write { writes++; throw IOException("Response lost after sending") }
+        var canReadCustomFoods = false
+        var customFoodExists = false
+        var verificationReads = 0
+        data.write(reconcile = { ctx ->
+            verificationReads++
+            backend.calls += "custom-foods" to ctx
+            if (!canReadCustomFoods) throw IOException("Still offline")
+            customFoodExists
+        }) {
+            writes++
+            customFoodExists = true
+            throw IOException("Response lost after sending")
+        }
         advanceUntilIdle()
         assertTrue(data.state.value.uncertain)
+        assertEquals(1, writes)
+        assertEquals(3, verificationReads) // GET retry only; the POST ran once.
         data.enter("profile")
         data.write { writes++ }
         advanceUntilIdle()
         assertEquals(1, writes)
         assertNotNull(data.state.value.error)
-        backend.onRead = { _, _ -> throw IOException("Still offline") }
+        canReadCustomFoods = true
         data.refresh()
         advanceUntilIdle()
-        assertTrue(data.state.value.uncertain)
-        backend.onRead = backend::respond
-        data.refresh()
-        advanceUntilIdle()
-        assertTrue(backend.calls.any { it.first == "diary" })
+        assertTrue(backend.calls.any { it.first == "custom-foods" })
         assertFalse(data.state.value.uncertain)
         assertNull(data.state.value.error)
         assertEquals(1, writes)
+    }
+
+    @Test fun ambiguousWriteWithConfirmedResultRecoversAutomatically() = runTest {
+        val backend = Backend(this)
+        backend.data.enter("meals")
+        advanceUntilIdle()
+        var writes = 0
+        var committed = false
+        backend.data.write(reconcile = { ctx ->
+            backend.calls += "saved-meals" to ctx
+            committed
+        }) {
+            writes++
+            committed = true
+            throw IOException("Response lost after save")
+        }
+        advanceUntilIdle()
+        assertEquals(1, writes)
+        assertFalse(backend.data.state.value.uncertain)
+        assertNull(backend.data.state.value.error)
+        assertTrue(backend.calls.any { it.first == "saved-meals" })
+    }
+
+    @Test fun missingWriteCanBeDismissedOnlyAfterSuccessfulVerification() = runTest {
+        val backend = Backend(this)
+        val data = backend.data
+        data.enter("food")
+        var writes = 0
+        data.write(reconcile = { ctx ->
+            backend.calls += "custom-foods" to ctx
+            false
+        }) {
+            writes++
+            throw IOException("Response lost before reaching server")
+        }
+        advanceUntilIdle()
+        assertTrue(data.state.value.uncertain)
+        assertTrue(data.state.value.canDismissUncertain)
+        assertEquals(1, writes)
+        data.dismissUncertain()
+        advanceUntilIdle()
+        assertFalse(data.state.value.uncertain)
+        assertFalse(data.state.value.canDismissUncertain)
+        assertEquals(1, writes) // Dismissing never resubmits the POST.
+    }
+
+    @Test fun failedCompanionReadDoesNotBlockDismissAfterVerifierSucceeds() = runTest {
+        val backend = Backend(this)
+        val data = backend.data
+        data.enter("water")
+        advanceUntilIdle()
+        backend.onRead = { route, ctx ->
+            if (route == "water") throw IOException("Settings offline")
+            backend.respond(route, ctx)
+        }
+        data.write(reconcile = { false }) { throw IOException("Response lost") }
+        advanceUntilIdle()
+        assertTrue(data.state.value.uncertain)
+        assertTrue(data.state.value.canDismissUncertain)
     }
 
     @Test fun refreshFailureAfterSuccessfulWriteDoesNotReportSaveFailureOrResubmit() = runTest {
@@ -300,7 +369,7 @@ class AppDataControllerTest {
         assertEquals(warning, data.state.value.error)
     }
 
-    @Test fun malformedWriteResponseRequiresReconciliationBeforeAnotherWrite() = runTest {
+    @Test fun unrelatedReadCannotClearAnAmbiguousCustomFoodWrite() = runTest {
         val backend = Backend(this)
         val data = backend.data
         data.enter("food")
@@ -321,9 +390,8 @@ class AppDataControllerTest {
         assertEquals(1, writes)
         data.refresh()
         advanceUntilIdle()
-        assertTrue(backend.calls.any { it.first == "diary" })
-        assertFalse(data.state.value.uncertain)
-        assertNull(data.state.value.error)
+        assertFalse(backend.calls.any { it.first == "diary" })
+        assertTrue(data.state.value.uncertain)
         assertEquals(1, writes)
     }
 

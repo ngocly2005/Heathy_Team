@@ -106,6 +106,14 @@ class AuthRepository internal constructor(
         acceptSession(rawApi.register(RegisterRequest(email.trim(), password, fullName.trim())))
     }
 
+    suspend fun requestPasswordReset(email: String): AuthMessage = operations.withLock {
+        rawApi.requestPasswordReset(PasswordResetStartRequest(email.trim()))
+    }
+
+    suspend fun resetPassword(token: String, next: String): AuthMessage = operations.withLock {
+        rawApi.resetPassword(PasswordResetFinishRequest(token.trim(), next))
+    }
+
     private fun owner(expectedId: Long): SessionRequestTag {
         if (sessions.snapshot()?.user?.id != expectedId) throw ApiFailure(409, "Phiên tài khoản đã thay đổi.")
         return SessionRequestTag(expectedId)

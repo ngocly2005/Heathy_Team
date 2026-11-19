@@ -16,6 +16,8 @@ class EmailLoginRequest(val email: String, val password: String)
 class RegisterRequest(val email: String, val password: String, @SerializedName("full_name") val fullName: String)
 class PasswordUpdateRequest(@SerializedName("current_password") val currentPassword: String?,
     @SerializedName("new_password") val newPassword: String)
+class PasswordResetStartRequest(val email: String)
+class PasswordResetFinishRequest(val token: String, @SerializedName("new_password") val newPassword: String)
 class RefreshRequest(@SerializedName("refresh_token") val refreshToken: String)
 class TokenPair(
     @SerializedName("access_token") val accessToken: String,
@@ -40,6 +42,12 @@ interface AuthApi {
 
     @PUT("api/v1/auth/password")
     suspend fun password(@Tag owner: SessionRequestTag, @Body request: PasswordUpdateRequest): AuthMessage
+
+    @POST("api/v1/auth/password/forgot")
+    suspend fun requestPasswordReset(@Body request: PasswordResetStartRequest): AuthMessage
+
+    @POST("api/v1/auth/password/reset")
+    suspend fun resetPassword(@Body request: PasswordResetFinishRequest): AuthMessage
 
     @POST("api/v1/auth/link-google")
     suspend fun linkGoogle(@Tag owner: SessionRequestTag, @Body request: GoogleLoginRequest): ApiUser

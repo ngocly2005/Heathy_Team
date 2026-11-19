@@ -67,6 +67,26 @@ fun NutritionGoalSummary(target: NutritionDto, enabled: Boolean, onEdit: (() -> 
     }
 }
 
+/** Warn about today's actual intake, using gram targets returned by the backend. */
+@Composable
+fun MacroIntakeWarning(state: AppState) {
+    val macros = state.dashboard?.macros ?: return
+    val target = state.nutrition ?: return
+    val warnings = buildList {
+        listOf(
+            Triple("chất đạm", macros.protein_g, target.protein_g),
+            Triple("đường bột", macros.carb_g, target.carb_g),
+            Triple("chất béo", macros.fat_g, target.fat_g),
+        ).forEach { (name, eaten, goal) ->
+            if (eaten.isFinite() && goal.isFinite() && eaten - goal >= 0.05) {
+                add("Bạn đã dùng ${eaten.display()} g $name, vượt mục tiêu ${goal.display()} g " +
+                    "thêm ${(eaten - goal).display()} g trong ngày đã chọn. Hãy xem lại khẩu phần các bữa tiếp theo.")
+            }
+        }
+    }
+    HealthWarningPanel(warnings)
+}
+
 @Composable
 fun MacroOverview(state: AppState) {
     val macros = state.dashboard?.macros ?: return
@@ -81,6 +101,7 @@ fun MacroOverview(state: AppState) {
             LinearProgressIndicator(progress = { if (goal > 0) (amount / goal).toFloat().coerceIn(0f, 1f) else 0f },
                 modifier = Modifier.fillMaxWidth().height(5.dp), color = nutrientColors[index], trackColor = Color(0xFFE8EAF0))
         }
+        MacroIntakeWarning(state)
         MacroRing(listOf(macros.protein_pct, macros.carb_pct, macros.fat_pct), Modifier.fillMaxWidth().height(140.dp))
         Text("Chất đạm ${macros.protein_pct.display()}% • Đường bột ${macros.carb_pct.display()}% • Chất béo ${macros.fat_pct.display()}%", color = FigmaInk,
             style = MaterialTheme.typography.bodySmall)

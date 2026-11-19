@@ -106,17 +106,82 @@ fun ConnectedSignInScreen(auth: AuthViewModel) {
     val context = LocalContext.current
     val ui by auth.uiState.collectAsState()
     var registering by rememberSaveable { mutableStateOf(false) }
+    var recovering by rememberSaveable { mutableStateOf(false) }
     var email by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
     // Credentials remain in this composition only, never saved in a Bundle or preferences.
     var password by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
+    if (recovering) {
+        PasswordRecoveryScreen(email, ui.busy, ui.error, ui.message,
+            onEmailChange = { email = it; auth.clearFeedback() },
+            onRequest = { auth.requestPasswordReset(email) },
+            onReset = { token, next -> auth.resetPassword(token, next) },
+            onBack = { recovering = false; auth.clearFeedback() })
+        return
+    }
     CredentialEntryScreen(registering, email, name, password, confirmation, ui.busy, ui.error,
         onEmailChange = { email = it; auth.clearFeedback() }, onNameChange = { name = it; auth.clearFeedback() },
         onPasswordChange = { password = it; auth.clearFeedback() }, onConfirmationChange = { confirmation = it; auth.clearFeedback() },
         onSubmit = { if (registering) auth.register(email, password, name) else auth.signInEmail(email, password) },
         onSwitch = { registering = !registering; password = ""; confirmation = ""; auth.clearFeedback() },
+        onForgot = { recovering = true; password = ""; auth.clearFeedback() },
         onGoogle = { auth.signIn(context) })
+}
+
+@Composable
+private fun PasswordRecoveryScreen(email: String, busy: Boolean, error: String?, message: String?,
+    onEmailChange: (String) -> Unit, onRequest: () -> Unit,
+    onReset: (String, String) -> Unit, onBack: () -> Unit) {
+    // Recovery secrets are intentionally not saved in a Bundle or preferences.
+    var token by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
+    val resetDone = message?.startsWith("Đã đặt lại mật khẩu") == true
+    val validPassword = newPasswordError(password) == null && password == confirmation
+    Column(Modifier.fillMaxSize()
+        .background(Brush.verticalGradient(listOf(Color(0xFFD4EFE6), Color(0xFFF5F6FA))))
+        .systemBarsPadding().imePadding().verticalScroll(rememberScrollState())
+        .padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Spacer(Modifier.height(45.dp))
+        Box(Modifier.size(56.dp).background(AuthAccent, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Lock, null, Modifier.size(29.dp), tint = Color.White)
+        }
+        Text("Quên mật khẩu", color = AuthInk, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+        Text("Nhập email tài khoản, sau đó dán mã nhận được để đặt mật khẩu mới.",
+            color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+        if (!resetDone) {
+            AuthEntryField("Email", email, !busy, Icons.Default.Email, KeyboardType.Email,
+                errorText = accountEmailError(email), onChange = onEmailChange)
+            Button(enabled = !busy && accountEmailError(email) == null,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), onClick = onRequest) {
+                Text("Gửi mã đặt lại")
+            }
+            Text("Mã chỉ gửi cho tài khoản đã đăng ký bằng email, có thời hạn và chỉ dùng một lần.",
+                color = Muted, style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(token, { token = it.take(2048) }, label = { Text("Mã đặt lại từ email") },
+                enabled = !busy, minLines = 2, maxLines = 3, modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false))
+            AuthEntryField("Mật khẩu mới", password, !busy, Icons.Default.Lock,
+                KeyboardType.Password, password = true, errorText = newPasswordError(password),
+                hint = "8–128 ký tự", onChange = { password = it })
+            AuthEntryField("Xác nhận mật khẩu mới", confirmation, !busy, Icons.Default.Lock,
+                KeyboardType.Password, password = true,
+                errorText = confirmationError(password, confirmation), onChange = { confirmation = it })
+            Button(enabled = !busy && token.trim().length >= 20 && validPassword,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                onClick = { onReset(token, password) }) { Text("Đặt lại mật khẩu") }
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall) }
+        message?.let { Text(it, color = AuthAccent, style = MaterialTheme.typography.bodySmall) }
+        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        TextButton(enabled = !busy, onClick = onBack) {
+            Text(if (resetDone) "Về đăng nhập" else "Quay lại đăng nhập")
+        }
+        Spacer(Modifier.height(24.dp))
+    }
 }
 
 /** Pure presentation also used by offline UI previews; all writes stay in AuthViewModel. */
@@ -124,7 +189,7 @@ fun ConnectedSignInScreen(auth: AuthViewModel) {
 fun CredentialEntryScreen(registering: Boolean, email: String, name: String, password: String, confirmation: String,
     busy: Boolean, error: String?, onEmailChange: (String) -> Unit, onNameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit, onConfirmationChange: (String) -> Unit,
-    onSubmit: () -> Unit, onSwitch: () -> Unit, onGoogle: () -> Unit) {
+    onSubmit: () -> Unit, onSwitch: () -> Unit, onForgot: () -> Unit, onGoogle: () -> Unit) {
     val errors = if (registering) registrationErrors(email, name, password, confirmation) else emailLoginErrors(email, password)
     var revealErrors by remember(registering) { mutableStateOf(false) }
     val submit = { if (!busy && errors.isValid) onSubmit() else revealErrors = true }
@@ -155,6 +220,8 @@ fun CredentialEntryScreen(registering: Boolean, email: String, name: String, pas
             if (registering) AuthEntryField("Xác nhận mật khẩu", confirmation, !busy, Icons.Default.Lock,
                 KeyboardType.Password, password = true, errorText = errors.confirmation, forceError = revealErrors,
                 done = true, onDone = submit, onChange = onConfirmationChange)
+            if (!registering) TextButton(onClick = onForgot, enabled = !busy,
+                modifier = Modifier.align(Alignment.End)) { Text("Quên mật khẩu?") }
         }
         if (!errors.isValid && (revealErrors || listOf(email, name, password, confirmation).any { it.isNotEmpty() })) {
             Text("Chưa thể ${if (registering) "đăng ký" else "đăng nhập"}: ${errors.messages.first()}",

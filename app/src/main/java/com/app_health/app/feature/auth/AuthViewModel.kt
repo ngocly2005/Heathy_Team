@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 data class AuthUiState(val busy: Boolean = false, val error: String? = null,
     val account: ApiUser? = null, val message: String? = null)
@@ -36,6 +37,37 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     fun register(email: String, password: String, fullName: String) {
         if (!validateCredentials(registrationErrors(email, fullName, password, password))) return
         credentials(errorMessage = ::credentialErrorMessage) { repository.register(email, password, fullName) }
+    }
+
+    fun requestPasswordReset(email: String) {
+        if (mutableUiState.value.busy) return
+        val problem = accountEmailError(email)
+        if (problem != null) {
+            mutableUiState.value = mutableUiState.value.copy(error = problem, message = null)
+            return
+        }
+        credentials("Nếu email có tài khoản mật khẩu, hệ thống sẽ gửi mã đặt lại.", ::passwordResetError) {
+            repository.requestPasswordReset(email)
+        }
+    }
+
+    fun resetPassword(token: String, next: String) {
+        if (mutableUiState.value.busy) return
+        val problem = newPasswordError(next)
+        if (problem != null || token.trim().length < 20) {
+            mutableUiState.value = mutableUiState.value.copy(
+                error = problem ?: "Vui lòng dán mã đặt lại từ email.", message = null)
+            return
+        }
+        credentials("Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.", ::passwordResetError) {
+            repository.resetPassword(token, next)
+        }
+    }
+
+    private fun passwordResetError(error: Exception): String = when ((error as? HttpException)?.code()) {
+        400 -> "Mã đặt lại không hợp lệ, đã dùng hoặc hết hạn. Hãy yêu cầu mã mới."
+        503 -> "Máy chủ chưa cấu hình gửi email. Liên hệ người quản trị để bật tính năng này."
+        else -> error.toUserMessage()
     }
 
     private fun validateCredentials(errors: CredentialErrors): Boolean {

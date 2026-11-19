@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -42,6 +43,8 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 
 private val WeightMint = Color(0xFF007D68)
 private val WeightPale = Color(0xFFE5F8F1)
@@ -89,7 +92,7 @@ private fun WeightMonthSelector(month: YearMonth, today: LocalDate, enabled: Boo
 }
 
 @Composable
-private fun MonthlyWeightTrend(points: List<MonthlyWeightPoint>, month: YearMonth, enabled: Boolean,
+private fun MonthlyWeightTrend(points: List<MonthlyWeightPoint>, month: YearMonth, targetWeightKg: Double?, enabled: Boolean,
     loading: Boolean, failed: Boolean, edit: (WeightDto) -> Unit) {
     if (points.isEmpty()) {
         Column(Modifier.fillMaxWidth().padding(vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally,
@@ -104,7 +107,21 @@ private fun MonthlyWeightTrend(points: List<MonthlyWeightPoint>, month: YearMont
     }
     var selectedDate by rememberSaveable(month.toString()) { mutableStateOf<String?>(null) }
     val selected = points.firstOrNull { it.entry.measured_on == selectedDate } ?: points.last()
-    val bounds = remember(points) { weightChartRange(points) }
+    // Keep the chart focused on the measurements. A distant goal is described below it,
+    // rather than flattening every measurement by expanding the axis to include it.
+    val bounds = remember(points) {
+        val measured = weightChartRange(points)
+        val spread = measured.maxKg - measured.minKg
+        val tick = when {
+            spread <= 2.0 -> 0.5
+            spread <= 5.0 -> 1.0
+            spread <= 10.0 -> 2.0
+            else -> 5.0
+        }
+        WeightChartRange(floor(measured.minKg / tick) * tick, ceil(measured.maxKg / tick) * tick)
+    }
+    val goalInRange = targetWeightKg != null && targetWeightKg.isFinite() &&
+        targetWeightKg in bounds.minKg..bounds.maxKg
     Row(Modifier.fillMaxWidth()) {
         Column(Modifier.width(45.dp).height(180.dp), verticalArrangement = Arrangement.SpaceBetween) {
             listOf(bounds.maxKg, (bounds.maxKg + bounds.minKg) / 2, bounds.minKg).forEach {
@@ -131,18 +148,31 @@ private fun MonthlyWeightTrend(points: List<MonthlyWeightPoint>, month: YearMont
                     val y = inset + plotHeight * row / 2
                     drawLine(WeightBorder, Offset(inset, y), Offset(size.width - inset, y), 1.dp.toPx())
                 }
-                val line = Path().apply {
-                    val first = position(points.first()); moveTo(first.x, first.y)
-                    points.drop(1).forEach { point -> val p = position(point); lineTo(p.x, p.y) }
+                fun smoothPath(): Path = Path().apply {
+                    val first = position(points.first())
+                    moveTo(first.x, first.y)
+                    points.zipWithNext().forEach { (previous, current) ->
+                        val from = position(previous)
+                        val to = position(current)
+                        val middleX = (from.x + to.x) / 2f
+                        cubicTo(middleX, from.y, middleX, to.y, to.x, to.y)
+                    }
                 }
+                val line = smoothPath()
                 if (points.size > 1) {
-                    val fill = Path().apply {
-                        val first = position(points.first()); moveTo(first.x, size.height - inset); lineTo(first.x, first.y)
-                        points.drop(1).forEach { point -> val p = position(point); lineTo(p.x, p.y) }
-                        lineTo(position(points.last()).x, size.height - inset); close()
+                    val fill = smoothPath().apply {
+                        lineTo(position(points.last()).x, size.height - inset)
+                        lineTo(position(points.first()).x, size.height - inset)
+                        close()
                     }
                     drawPath(fill, Brush.verticalGradient(listOf(WeightMint.copy(alpha = 0.18f), Color.Transparent)))
                     drawPath(line, WeightMint, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                }
+                if (goalInRange) {
+                    val goalY = size.height - inset -
+                        ((targetWeightKg!! - bounds.minKg) / (bounds.maxKg - bounds.minKg)).toFloat() * plotHeight
+                    drawLine(Color(0xFFF39B43), Offset(inset, goalY), Offset(size.width - inset, goalY),
+                        strokeWidth = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx())))
                 }
                 points.forEach { point ->
                     val p = position(point)
@@ -161,6 +191,18 @@ private fun MonthlyWeightTrend(points: List<MonthlyWeightPoint>, month: YearMont
         }
     }
     Text("Ngày trong tháng • đơn vị kg", color = WeightMuted, style = MaterialTheme.typography.labelSmall)
+    if (targetWeightKg != null && targetWeightKg.isFinite()) {
+        val distance = abs(points.last().entry.weight_kg - targetWeightKg)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Canvas(Modifier.width(28.dp).height(3.dp)) {
+                drawLine(Color(0xFFF39B43), Offset(0f, center.y), Offset(size.width, center.y),
+                    strokeWidth = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
+            }
+            Text("Mục tiêu ${weightLabel(targetWeightKg)} kg • ${if (distance < 0.01) "Đã đạt" else "còn ${weightLabel(distance)} kg"}" +
+                if (goalInRange) "" else " (ngoài thang biểu đồ)",
+                color = WeightMuted, style = MaterialTheme.typography.bodySmall)
+        }
+    }
     Row(Modifier.fillMaxWidth().background(WeightPale, RoundedCornerShape(16.dp)).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
         Column {
@@ -198,8 +240,14 @@ private fun measurementError(error: Exception): String = if (error is IOExceptio
     "Chưa rõ kết quả thao tác. Bấm Tải lại và kiểm tra số đo trước khi gửi tiếp."
 else error.toUserMessage()
 
-private fun saveMeasurement(vm: AppViewModel, date: LocalDate, value: Double, success: () -> Unit, failure: (String) -> Unit) {
-    vm.write(success = success) { ctx ->
+private fun saveMeasurement(vm: AppViewModel, date: LocalDate, value: Double, success: () -> Unit, failure: (String?) -> Unit) {
+    vm.write(success = success, reconcile = { ctx ->
+        val found = vm.api.weights(ctx.owner).any {
+            it.measured_on == date.toString() && kotlin.math.abs(it.weight_kg - value) < 0.011
+        }
+        if (found) { failure(null); success() }
+        found
+    }) { ctx ->
         try { vm.api.saveWeight(ctx.owner, date.toString(), mapOf("weight_kg" to value)) }
         catch (cancelled: CancellationException) { throw cancelled }
         catch (error: Exception) { failure(measurementError(error)); throw error }
@@ -256,7 +304,7 @@ fun WeightScreen(vm: AppViewModel) {
         WeightCard {
             WeightHeading("Xu hướng theo tháng", Icons.Outlined.ShowChart)
             WeightMonthSelector(month, today, enabled) { monthText = it.toString() }
-            MonthlyWeightTrend(points, month, enabled, state.loading, state.error != null, ::edit)
+            MonthlyWeightTrend(points, month, state.nutrition?.target_weight_kg, enabled, state.loading, state.error != null, ::edit)
         }
         WeightCard {
             WeightHeading("Ghi số đo", Icons.Outlined.MonitorWeight)
@@ -352,7 +400,11 @@ fun WeightScreen(vm: AppViewModel) {
             }, confirmButton = {
                 TextButton(enabled = enabled && deleteError != LastWeightMessage, onClick = {
                     deleteError = null
-                    vm.write(success = { deleting = null }) { ctx ->
+                    vm.write(success = { deleting = null }, reconcile = { ctx ->
+                        val gone = vm.api.weights(ctx.owner).none { it.measured_on == target.measured_on }
+                        if (gone) { deleteError = null; deleting = null }
+                        gone
+                    }) { ctx ->
                         try { vm.api.deleteWeight(ctx.owner, target.measured_on) }
                         catch (cancelled: CancellationException) { throw cancelled }
                         catch (error: Exception) {

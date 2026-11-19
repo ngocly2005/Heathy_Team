@@ -21,11 +21,47 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import com.app_health.app.core.network.retryTransientRead
+import com.app_health.app.core.network.ApiFailure
 import com.app_health.app.core.network.toUserMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlin.math.abs
+
+private fun savedMealMatches(saved: SavedMealDto, name: String, payloadItems: List<Map<String, Any?>>): Boolean =
+    saved.name == name && saved.items.size == payloadItems.size &&
+        saved.items.zip(payloadItems).all { (actual, expected) ->
+            actual.food_id == expected["food_id"] &&
+                abs(actual.grams - (expected["grams"] as Double)) < 0.03 &&
+                (if (actual.food_id != null) true else actual.food_name == expected["food_name"] &&
+                    listOf(
+                        actual.calories_per_100g to "calories_per_100g",
+                        actual.protein_per_100g to "protein_per_100g",
+                        actual.carb_per_100g to "carb_per_100g",
+                        actual.fat_per_100g to "fat_per_100g",
+                    ).all { (number, field) -> abs(number - (expected[field] as Double)) < 0.03 })
+        }
+
+private suspend fun mealLogIdsBeforeWrite(vm: AppViewModel, ctx: RequestContext): Set<Long> = try {
+    retryTransientRead(checkCurrent = { if (!vm.valid(ctx)) throw CancellationException("Account changed") }) {
+        vm.api.dashboard(ctx.owner, ctx.date).food_logs.map { it.id }.toSet()
+    }
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (_: Exception) {
+    throw ApiFailure(503, "Chưa kiểm tra được nhật ký trước khi thêm bữa. Hãy thử lại.")
+}
+
+private suspend fun savedMealIdsBeforeWrite(vm: AppViewModel, ctx: RequestContext): Set<Long> = try {
+    retryTransientRead(checkCurrent = { if (!vm.valid(ctx)) throw CancellationException("Account changed") }) {
+        vm.api.meals(ctx.owner).map { it.id }.toSet()
+    }
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (_: Exception) {
+    throw ApiFailure(503, "Chưa kiểm tra được bữa đã lưu trước khi tạo. Hãy thử lại.")
+}
 
 fun mealsFeature() = AppFeature("meals", "Thực đơn đã lưu", load = { vm, ctx ->
     val meals = vm.api.meals(ctx.owner)
@@ -55,8 +91,9 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
     HealthPage {
         HealthHeader("Thực đơn đã lưu", "Lưu và quản lý các bữa ăn yêu thích của bạn", Icons.Default.Bookmarks,
             onBack = { if (!state.busy) navigate("home") })
-        Button(enabled = enabled, onClick = { creating = true }, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Tạo bữa ăn từ các món của tôi")
+        Button(enabled = enabled, onClick = { creating = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
+            shape = RoundedCornerShape(24.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint)) {
+            Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Tạo thực đơn dinh dưỡng mới")
         }
         DateStrip(vm)
         HealthCard(title = "Chọn bữa ăn & giờ ăn") {
@@ -72,18 +109,32 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             }
         }
 
+        if (state.meals.isNotEmpty()) Text("Bữa ăn đã lưu", color = Ink,
+            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         state.meals.forEach { saved ->
             HealthCard(title = saved.name) {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    UiIllustration(Icons.Default.RestaurantMenu)
+                    UiIllustration(Icons.Default.RestaurantMenu, Modifier.size(58.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("${saved.items.size} món • ${saved.items.sumOf { it.grams }.display()} g", color = Muted)
                         Text("${saved.items.sumOf { it.calories_per_100g * it.grams / 100 }.display()} kcal",
                             color = Ink, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     }
+                    Surface(shape = RoundedCornerShape(18.dp), color = PaleMint) {
+                        Text("Đã lưu", Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Mint,
+                            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                    }
                 }
                 saved.items.forEach { item ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        val catalog = item.food_id?.let { id ->
+                            state.foods.firstOrNull { it.id == id && !it.is_custom } ?: FoodDto(
+                                id, item.food_name, item.calories_per_100g, item.protein_per_100g,
+                                item.carb_per_100g, item.fat_per_100g, has_image = true)
+                        }
+                        if (catalog != null) FoodPhoto(vm, catalog, Modifier.size(42.dp))
+                        else Icon(Icons.Default.Restaurant, null, Modifier.size(28.dp), tint = Mint)
                         Text(item.food_name, Modifier.weight(1f), color = Ink)
                         Text("${item.grams.display()} g", color = Muted)
                     }
@@ -94,9 +145,32 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                 Text("Protein ${protein.display()} g • Carb ${carbs.display()} g • Fat ${fat.display()} g",
                     color = Muted, style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider(color = Border)
-                Button(enabled = enabled && validMealTime(time), modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), onClick = {
-                    vm.write { ctx -> vm.api.logMeal(ctx.owner, saved.id,
-                        mapOf("log_date" to ctx.date, "meal_type" to meal, "meal_time" to time)) }
+                Button(enabled = enabled && validMealTime(time), modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(24.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint), onClick = {
+                    val chosenMeal = meal
+                    val chosenTime = time
+                    var beforeIds: Set<Long>? = null
+                    var postStarted = false
+                    vm.write(reconcile = { ctx ->
+                        val previous = beforeIds
+                        if (!postStarted || previous == null) false else {
+                            val newLogs = vm.api.dashboard(ctx.owner, ctx.date).food_logs.filter {
+                                it.id !in previous && it.meal_type == chosenMeal && it.meal_time == chosenTime
+                            }.toMutableList()
+                            saved.items.all { item ->
+                                val index = newLogs.indexOfFirst { log ->
+                                    log.food_name == item.food_name && abs(log.grams - item.grams) < 0.02 &&
+                                        abs(log.calories_kcal - item.calories_per_100g * item.grams / 100) < 0.06
+                                }
+                                if (index < 0) false else { newLogs.removeAt(index); true }
+                            }
+                        }
+                    }) { ctx ->
+                        beforeIds = mealLogIdsBeforeWrite(vm, ctx)
+                        postStarted = true
+                        vm.api.logMeal(ctx.owner, saved.id,
+                            mapOf("log_date" to ctx.date, "meal_type" to chosenMeal, "meal_time" to chosenTime))
+                    }
                 }) { Icon(Icons.Default.Bolt, null); Spacer(Modifier.width(6.dp)); Text("Thêm nhanh vào nhật ký") }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(enabled = enabled, modifier = Modifier.weight(1f), onClick = {
@@ -132,6 +206,10 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                             Text("${log.grams.display()} g • ${log.calories_kcal.display()} kcal",
                                 color = Muted, style = MaterialTheme.typography.bodySmall)
                         }
+                        val food = state.foods.firstOrNull { it.name == log.food_name &&
+                            (log.food_id == null || it.id == log.food_id) }
+                        if (food != null) FoodPhoto(vm, food, Modifier.size(42.dp))
+                        else Icon(Icons.Default.Restaurant, null, Modifier.size(32.dp), tint = Mint)
                     }
                 }
             }
@@ -163,15 +241,29 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
             }
             if (selected.size > 30) Text("Mỗi bữa tối đa 30 món. Bỏ chọn một số món để tiếp tục.", color = UiDanger)
             Button(enabled = enabled && name.isNotBlank() && selected.isNotEmpty() && selected.size <= 30,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), onClick = {
+                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Mint), onClick = {
                     val items = selected.map { log ->
-                        mapOf("food_id" to null, "food_name" to log.food_name, "grams" to log.grams,
+                        mapOf("food_id" to log.food_id, "food_name" to log.food_name, "grams" to log.grams,
                             "calories_per_100g" to log.calories_kcal * 100 / log.grams,
                             "protein_per_100g" to log.protein_g * 100 / log.grams,
                             "carb_per_100g" to log.carb_g * 100 / log.grams,
                             "fat_per_100g" to log.fat_g * 100 / log.grams)
                     }
-                    vm.write(success = { name = "" }) { ctx -> vm.api.saveMeal(ctx.owner, mapOf("name" to name.trim(), "items" to items)) }
+                    val mealName = name.trim()
+                    var beforeIds: Set<Long>? = null
+                    var postStarted = false
+                    vm.write(success = { name = "" }, reconcile = { ctx ->
+                        val found = postStarted && beforeIds != null && vm.api.meals(ctx.owner).any {
+                            it.id !in beforeIds!! && savedMealMatches(it, mealName, items)
+                        }
+                        if (found) name = ""
+                        found
+                    }) { ctx ->
+                        beforeIds = savedMealIdsBeforeWrite(vm, ctx)
+                        postStarted = true
+                        vm.api.saveMeal(ctx.owner, mapOf("name" to mealName, "items" to items))
+                    }
                 }) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Lưu bữa ăn") }
         }
 
@@ -191,15 +283,19 @@ fun MealsScreen(vm: AppViewModel, navigate: (String) -> Unit) {
         AlertDialog(onDismissRequest = { if (!state.busy) deleting = null }, title = { Text("Xóa bữa đã lưu?") },
             text = { Text("Các món đã ghi vào nhật ký vẫn được giữ lại.") },
             confirmButton = { TextButton(enabled = enabled, onClick = {
-                vm.write(success = { deleting = null }) { ctx -> vm.api.deleteMeal(ctx.owner, id) }
+                vm.write(success = { deleting = null }, reconcile = { ctx ->
+                    val gone = vm.api.meals(ctx.owner).none { it.id == id }
+                    if (gone) deleting = null
+                    gone
+                }) { ctx -> vm.api.deleteMeal(ctx.owner, id) }
             }) { Text("Xóa", color = UiDanger) } },
             dismissButton = { TextButton(enabled = !state.busy, onClick = { deleting = null }) { Text("Hủy") } })
     }
 }
 
-private data class MealDraft(val name: String, val grams: String, val calories: Double,
+private data class MealDraft(val foodId: Long?, val name: String, val grams: String, val calories: Double,
     val protein: Double, val carbs: Double, val fat: Double) {
-    fun payload(): Map<String, Any?> = mapOf("food_id" to null, "food_name" to name,
+    fun payload(): Map<String, Any?> = mapOf("food_id" to foodId, "food_name" to name,
         "grams" to inputNumber(grams)!!, "calories_per_100g" to calories,
         "protein_per_100g" to protein, "carb_per_100g" to carbs, "fat_per_100g" to fat)
 }
@@ -212,7 +308,7 @@ private fun MealComposerScreen(vm: AppViewModel, saved: SavedMealDto?, onClose: 
     var results by remember { mutableStateOf<List<FoodDto>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     val rows = remember(saved?.id) { mutableStateListOf<MealDraft>().apply {
-        saved?.items?.forEach { item -> add(MealDraft(item.food_name, uiEditNumber(item.grams),
+        saved?.items?.forEach { item -> add(MealDraft(item.food_id, item.food_name, uiEditNumber(item.grams),
             item.calories_per_100g, item.protein_per_100g, item.carb_per_100g, item.fat_per_100g)) }
     } }
     val enabled = !state.busy && !state.loading && !state.uncertain
@@ -256,10 +352,26 @@ private fun MealComposerScreen(vm: AppViewModel, saved: SavedMealDto?, onClose: 
                 Text("${(item.calories * (inputNumber(item.grams) ?: 0.0) / 100).display()} kcal", color = Muted)
                 HorizontalDivider(color = Border)
             }
-            Button(enabled = enabled && valid, modifier = Modifier.fillMaxWidth(), onClick = {
-                val payload = mapOf("name" to name.trim(), "items" to rows.map { it.payload() })
-                vm.write(success = onClose) { ctx ->
-                    if (saved == null) vm.api.saveMeal(ctx.owner, payload)
+            Button(enabled = enabled && valid, modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp), colors = ButtonDefaults.buttonColors(containerColor = Mint), onClick = {
+                val mealName = name.trim()
+                val items = rows.map { it.payload() }
+                val payload = mapOf("name" to mealName, "items" to items)
+                var beforeIds: Set<Long>? = null
+                var postStarted = false
+                vm.write(success = onClose, reconcile = { ctx ->
+                    val found = vm.api.meals(ctx.owner).any { item ->
+                        (if (saved == null) postStarted && beforeIds?.contains(item.id) == false
+                            else item.id == saved.id) && savedMealMatches(item, mealName, items)
+                    }
+                    if (found) onClose()
+                    found
+                }) { ctx ->
+                    if (saved == null) {
+                        beforeIds = savedMealIdsBeforeWrite(vm, ctx)
+                        postStarted = true
+                        vm.api.saveMeal(ctx.owner, payload)
+                    }
                     else vm.api.editMeal(ctx.owner, saved.id, payload)
                 }
             }) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Lưu bữa ăn") }
@@ -278,7 +390,7 @@ private fun MealComposerScreen(vm: AppViewModel, saved: SavedMealDto?, onClose: 
                         Text("${food.calories_per_100g.display()} kcal / 100 g", color = Muted)
                     }
                     IconButton(enabled = enabled && rows.size < 30, onClick = {
-                        rows.add(MealDraft(food.name, "100", food.calories_per_100g,
+                        rows.add(MealDraft(if (food.is_custom) null else food.id, food.name, "100", food.calories_per_100g,
                             food.protein_per_100g, food.carb_per_100g, food.fat_per_100g))
                     }) { Icon(Icons.Default.Add, "Thêm ${food.name}") }
                 }

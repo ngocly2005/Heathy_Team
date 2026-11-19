@@ -9,7 +9,7 @@ import java.time.LocalDate
 
 class DashboardPresentationTest {
     private fun day(food: Double, burned: Double = 400.0, target: Double? = 2000.0) = DashboardDto(
-        "2026-11-07", food, burned, target, target?.let { it - food + burned }, food - burned, 0,
+        "2026-11-07", food, burned, target, target?.let { it - food }, food - burned, 0,
         MacroDto(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), emptyList(), emptyList())
 
     @Test fun foodProgressChangesEvenWhileExerciseExceedsFood() {
@@ -17,8 +17,8 @@ class DashboardPresentationTest {
         val after = caloriePresentation(day(200.0))
         assertEquals(0.05f, before.progress!!, 0.00001f)
         assertEquals(0.10f, after.progress!!, 0.00001f)
-        assertEquals(2300.0, before.remaining!!, 0.0001)
-        assertEquals(2200.0, after.remaining!!, 0.0001)
+        assertEquals(1900.0, before.remaining!!, 0.0001)
+        assertEquals(1800.0, after.remaining!!, 0.0001)
     }
 
     @Test fun fractionalFoodCaloriesAreNotTruncatedToAnInteger() {
@@ -37,9 +37,9 @@ class DashboardPresentationTest {
         assertNull(caloriePresentation(day(100.0, target = 0.0)).percent)
     }
 
-    @Test fun referenceNumbersFollowBackendBudgetIncludingExercise() {
+    @Test fun referenceNumbersFollowFoodGoalWithoutExerciseCredit() {
         val model = caloriePresentation(day(1180.0, 120.0, 1800.0))
-        assertEquals(740.0, model.remaining!!, 0.0001)
+        assertEquals(620.0, model.remaining!!, 0.0001)
         assertEquals(1180.0 / 1800.0, model.progress!!.toDouble(), 0.00001)
     }
 

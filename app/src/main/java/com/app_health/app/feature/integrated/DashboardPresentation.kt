@@ -6,7 +6,7 @@ import java.time.temporal.TemporalAdjusters
 
 data class CaloriePresentation(val remaining: Double?, val progress: Float?, val percent: Double?, val aboveFoodTarget: Boolean)
 
-/** Food consumption progress is independent of exercise; remaining calories stay server-owned. */
+/** The food goal is independent of exercise; remaining calories stay server-owned. */
 fun caloriePresentation(day: DashboardDto): CaloriePresentation {
     val target = day.calorie_target?.takeIf { it.isFinite() && it > 0 }
     val food = day.calories_consumed.takeIf { it.isFinite() }?.coerceAtLeast(0.0) ?: 0.0

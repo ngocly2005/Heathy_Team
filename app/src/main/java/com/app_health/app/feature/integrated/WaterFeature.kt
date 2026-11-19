@@ -19,8 +19,12 @@ fun WaterOverview(vm:AppViewModel) {
     val day=state.dashboard ?: return
     val enabled=!state.busy && !state.loading && !state.uncertain
     WaterIntakeCard(day.water_ml,settings.effective_target_ml,
-        onIncrease={if(enabled)vm.write {ctx -> vm.api.adjustWater(ctx.owner,mapOf("log_date" to ctx.date,"amount_ml" to settings.serving_ml))}},
-        onDecrease={if(enabled)vm.write {ctx -> vm.api.adjustWater(ctx.owner,mapOf("log_date" to ctx.date,"amount_ml" to -settings.serving_ml))}})
+        onIncrease={if(enabled)vm.write(reconcile = {ctx ->
+            vm.api.dashboard(ctx.owner,ctx.date).water_ml == day.water_ml + settings.serving_ml
+        }) {ctx -> vm.api.adjustWater(ctx.owner,mapOf("log_date" to ctx.date,"amount_ml" to settings.serving_ml))}},
+        onDecrease={if(enabled)vm.write(reconcile = {ctx ->
+            vm.api.dashboard(ctx.owner,ctx.date).water_ml == (day.water_ml-settings.serving_ml).coerceAtLeast(0)
+        }) {ctx -> vm.api.adjustWater(ctx.owner,mapOf("log_date" to ctx.date,"amount_ml" to -settings.serving_ml))}})
     HealthWarningPanel(waterIntakeWarnings(day.water_ml, settings.effective_target_ml))
     val glasses=ceil(settings.effective_target_ml.toDouble()/settings.serving_ml).toInt()
     val filled=day.water_ml/settings.serving_ml
@@ -45,7 +49,9 @@ fun WaterScreen(vm:AppViewModel) {
             Text("Tự động: 35 ml/kg, cộng theo mức vận động; giới hạn 1.5–4.5 lít.")
             HealthWarningPanel(waterGoalWarnings(amount, state.profile))
             Button(enabled=enabled && (target.isBlank() || amount!=null && amount in 500..10000),onClick={
-                vm.write {ctx -> vm.api.saveWater(ctx.owner,mapOf("target_ml" to amount,"serving_ml" to serving.toInt()))}
+                vm.write(reconcile = {ctx ->
+                    vm.api.waterSettings(ctx.owner).let { it.target_ml == amount && it.serving_ml == serving.toInt() }
+                }) {ctx -> vm.api.saveWater(ctx.owner,mapOf("target_ml" to amount,"serving_ml" to serving.toInt()))}
             }){Text("Lưu cài đặt nước")}
         }
     }

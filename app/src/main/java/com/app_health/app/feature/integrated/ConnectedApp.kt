@@ -1,6 +1,7 @@
 package com.app_health.app.feature.integrated
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,7 +66,7 @@ private fun ConnectedShell(vm: AppViewModel, onOpenAdmin: () -> Unit, onRefreshI
     val state by vm.state.collectAsState()
     val current = features.firstOrNull { it.route == route }
     val busy = state.busy || authBusy
-    val branded = route in setOf("home", "diary", "meals", "profile", "macros")
+    val branded = route in setOf("home", "diary", "meals", "profile", "macros", "food", "photo", "activity", "chat")
     LaunchedEffect(route) {
         vm.enter(route)
         if (route == "profile") onRefreshIdentity()
@@ -73,21 +75,7 @@ private fun ConnectedShell(vm: AppViewModel, onOpenAdmin: () -> Unit, onRefreshI
     BackHandler(enabled = route != (features.firstOrNull()?.route ?: "foundation") && !busy) {
         route = features.firstOrNull()?.route ?: "foundation"
     }
-    Scaffold(containerColor = HealthBackground, topBar = {
-        if (branded) Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { vm.refresh(); onRefreshIdentity() }, enabled = !state.loading && !busy,
-                modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-                Text("Tải lại", style = MaterialTheme.typography.labelMedium)
-            }
-        } else TopAppBar(title = { Text(current?.title ?: "AppHealth") }, actions = {
-            TextButton(onClick = { vm.refresh(); onRefreshIdentity() }, enabled = !state.loading && !busy) { Text("Tải lại") }
-        }, navigationIcon = {
-            if (route in setOf("food", "activity")) IconButton(enabled = !busy, onClick = {
-                route = features.firstOrNull()?.route ?: "home"
-            }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại") }
-        })
-    }, bottomBar = {
+    Scaffold(containerColor = HealthBackground, bottomBar = {
         if(features.any{it.route=="diary"}) AppBottomNavigation(enabled = !busy,
             currentRoute=when(route){"diary"->BottomNavRoute.DIARY;"meals"->BottomNavRoute.PLAN;"profile"->BottomNavRoute.ACCOUNT;else->BottomNavRoute.HOME},
             onRouteSelected={target ->if(!busy)route=when(target){BottomNavRoute.HOME->"home";BottomNavRoute.DIARY->"diary";BottomNavRoute.PLAN->"meals";BottomNavRoute.ACCOUNT->"profile"}},
@@ -102,10 +90,31 @@ private fun ConnectedShell(vm: AppViewModel, onOpenAdmin: () -> Unit, onRefreshI
         }
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            if (!branded) Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).background(Color(0xFFF1FBF8))
+                .padding(horizontal = 12.dp).padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                if (route in setOf("food", "activity")) IconButton(enabled = !busy, onClick = {
+                    route = features.firstOrNull()?.route ?: "home"
+                }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = Ink) }
+                Text(current?.title ?: "AppHealth", color = Ink,
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
             if (state.loading || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             state.error?.takeIf { state.route == route || state.uncertain }?.let { message ->
                 Surface(color = MaterialTheme.colorScheme.errorContainer) {
-                    Text(message, Modifier.fillMaxWidth().padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp)) {
+                        Text(message, color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.align(Alignment.End)) {
+                            TextButton(onClick = { vm.refresh(); onRefreshIdentity() }, enabled = !state.loading && !busy) {
+                                Text("Tải lại", color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                            if (state.canDismissUncertain) TextButton(onClick = vm::dismissUncertain,
+                                enabled = !state.loading && !busy) {
+                                Text("Tiếp tục", color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                        }
+                    }
                 }
             }
             key(route) {

@@ -95,7 +95,7 @@ fun ProfileScreen(vm: AppViewModel, navigate: (String) -> Unit) {
         section = "edit"
     }
     BackHandler(enabled = section != "home" && !state.busy) { section = "home" }
-    FigmaPage {
+    FigmaPage(background = Color(0xFFE7F7F1)) {
         when (section) {
             "edit" -> {
                 ProfileHeading("Cập nhật chỉ số", onBack = { section = "home" }, enabled = !state.busy)
@@ -137,9 +137,26 @@ fun ProfileScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                 } else Text("Chọn ngày sinh trước hôm nay, chiều cao trên 80 đến 250 cm và cân nặng trên 20 đến 400 kg.",
                     color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
                 Button(enabled = enabled && valid, onClick = {
-                    vm.write(success = { section = "home" }) { ctx ->
-                        val saved = vm.api.saveProfile(ctx.owner, mapOf("birth_date" to birth, "height_cm" to h,
-                            "weight_kg" to w, "sex" to sex, "activity_level" to activity, "goal" to goal))
+                    val submittedBirth = birth
+                    val submittedHeight = h!!
+                    val submittedWeight = w!!
+                    val submittedSex = sex
+                    val submittedActivity = activity
+                    val submittedGoal = goal
+                    vm.write(success = { section = "home" }, reconcile = { ctx ->
+                        val saved = vm.api.profile(ctx.owner)
+                        val found = saved.birth_date == submittedBirth &&
+                            kotlin.math.abs(saved.height_cm - submittedHeight) < 0.011 &&
+                            kotlin.math.abs(saved.weight_kg - submittedWeight) < 0.011 &&
+                            saved.sex == submittedSex && saved.activity_level == submittedActivity &&
+                            saved.goal == submittedGoal
+                        if (found) { vm.publish(ctx) { it.copy(profile = saved) }; section = "home" }
+                        found
+                    }) { ctx ->
+                        val saved = vm.api.saveProfile(ctx.owner, mapOf("birth_date" to submittedBirth,
+                            "height_cm" to submittedHeight, "weight_kg" to submittedWeight,
+                            "sex" to submittedSex, "activity_level" to submittedActivity,
+                            "goal" to submittedGoal))
                         vm.publish(ctx) { it.copy(profile = saved) }
                     }
                 }, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(28.dp)) { Text("Lưu thay đổi", fontWeight = FontWeight.Bold) }
@@ -182,7 +199,7 @@ fun ProfileScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                     Text(user?.email ?: "", color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
                     if (user?.role == "admin") Text("Quản trị viên", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                 }
-                FigmaCard {
+                FigmaCard(title = "Chỉ số sức khỏe") {
                     if (largeText) {
                         ProfileDetailRow("BMI", profile?.bmi?.display() ?: "—")
                         ProfileDetailRow("TDEE", profile?.tdee_kcal?.let { "${it.uiNumber(0)} kcal" } ?: "—")
@@ -206,13 +223,21 @@ fun ProfileScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                     IconButton(onClick = { navigate("weight") }, enabled = !state.busy) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Lịch sử cân nặng", tint = FigmaInk) }
                 }
                 FigmaCard {
-                    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Default.TrackChanges, null, tint = Color(0xFFF24A4D), modifier = Modifier.size(38.dp))
-                        Text(profile?.let { "Cân nặng hiện tại: ${it.weight_kg.display()} kg" } ?: "Chưa có dữ liệu cân nặng", color = FigmaInk, fontWeight = FontWeight.Bold)
-                        Text(if (profile == null) "Hãy cập nhật chỉ số để xem tiến trình" else "Theo dõi số đo thực tế trong lịch sử cân nặng", color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
-                        TextButton(enabled = !state.busy, onClick = { navigate("weight") }) { Text("Xem biểu đồ cân nặng") }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        UiIllustration(Icons.Default.MonitorWeight)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(profile?.let { "Cân nặng hiện tại: ${it.weight_kg.display()} kg" } ?: "Chưa có dữ liệu cân nặng", color = FigmaInk, fontWeight = FontWeight.Bold)
+                            Text(if (profile == null) "Hãy cập nhật chỉ số để xem tiến trình" else "Theo dõi số đo thực tế trong lịch sử cân nặng", color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
-                    state.nutrition?.target_weight_kg?.let { ProfileDetailRow("Mục tiêu", "${it.display()} kg") }
+                    state.nutrition?.target_weight_kg?.let { target ->
+                        Text("Hiện tại ${profile?.weight_kg?.let { "${it.display()} kg" } ?: "—"}  →  Mục tiêu ${target.display()} kg",
+                            color = FigmaMuted, style = MaterialTheme.typography.bodySmall)
+                        ProfileDetailRow("Cân nặng mong muốn", "${target.display()} kg")
+                    }
+                    TextButton(enabled = !state.busy, onClick = { navigate("weight") },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Xem biểu đồ cân nặng") }
                 }
                 FigmaTitle("Mục tiêu dinh dưỡng & đa lượng")
                 state.nutrition?.let { NutritionGoalSummary(it, !state.busy) { navigate("macros") } }

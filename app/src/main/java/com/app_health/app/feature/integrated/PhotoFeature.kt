@@ -16,8 +16,15 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.exifinterface.media.ExifInterface
+import com.app_health.app.core.network.ApiFailure
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
@@ -42,7 +50,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-fun photoFeature() = AppFeature("photo", "Chụp món ăn") { vm, _ -> PhotoScreen(vm) }
+fun photoFeature() = AppFeature("photo", "Chụp món ăn") { vm, navigate -> PhotoScreen(vm, navigate) }
 
 internal fun normalizedPhoto(context: Context, uri: Uri): ByteArray {
     val resolver = context.contentResolver
@@ -96,7 +104,7 @@ fun PhotoDraft.toPhotoItem(): PhotoItemDto? {
 }
 
 @Composable
-fun PhotoScreen(vm: AppViewModel) {
+fun PhotoScreen(vm: AppViewModel, navigate: (String) -> Unit) {
     val state by vm.state.collectAsState()
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
@@ -107,9 +115,17 @@ fun PhotoScreen(vm: AppViewModel) {
     var permission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context,Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
     var cameraReady by remember { mutableStateOf(false) }
     var imageVersion by remember { mutableIntStateOf(0) }
+    var awaitingConfirmation by remember { mutableStateOf(false) }
     var meal by rememberSaveable { mutableStateOf("snack") }
     var time by rememberSaveable { mutableStateOf(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))) }
     val enabled = !state.busy && !state.loading && !state.uncertain
+
+    LaunchedEffect(awaitingConfirmation, state.photoConfirmed, state.uncertain) {
+        if (awaitingConfirmation && state.photoConfirmed && !state.uncertain) {
+            awaitingConfirmation = false
+            navigate("home")
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { permission = it }
     fun select(uri: Uri) {
         val ctx = vm.context()
@@ -139,11 +155,30 @@ fun PhotoScreen(vm: AppViewModel) {
         }
         onDispose { active = false; cameraReady = false; provider?.unbind(preview,capture) }
     }
-    Page {
-        Text("Ngày ghi: ${state.date}")
-        if (permission) AndroidView(factory = { previewView }, modifier = Modifier.fillMaxWidth().height(220.dp))
-        else Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) { Text("Cho phép sử dụng camera") }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    HealthPage {
+        HealthHeader("Chụp món ăn", "Ngày ghi: ${uiDate(state.date.toString())}",
+            Icons.Default.CameraAlt, onBack = { navigate("home") })
+        HealthCard(title = "Cấp quyền & Bắt đầu") {
+            if (permission) Text("Camera đã được cấp quyền. Đặt món ăn vào khung hình bên dưới.", color = Muted)
+            else {
+                Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                    modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.PhotoCamera, null); Spacer(Modifier.width(8.dp))
+                    Text("Cho phép sử dụng camera")
+                }
+                Text("Bạn cũng có thể chọn ảnh có sẵn trong thư viện.", color = Muted,
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        HealthCard(title = "Tùy chọn tải ảnh") {
+            if (permission) AndroidView(factory = { previewView },
+                modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(18.dp))
+                    .background(Color.Black))
+            else Box(Modifier.fillMaxWidth().height(132.dp).background(PaleMint, RoundedCornerShape(18.dp)),
+                contentAlignment = Alignment.Center) {
+                Text("Đặt món ăn vào khung hình hoặc tải ảnh lên", color = Muted)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = enabled && cameraReady, onClick = {
                 val ctx = vm.context()
                 val file = File(context.cacheDir,"meal-${UUID.randomUUID()}.jpg")
@@ -158,26 +193,55 @@ fun PhotoScreen(vm: AppViewModel) {
                     }
                     override fun onError(exception: ImageCaptureException) { file.delete(); vm.showError("Không chụp được ảnh.",ctx) }
                 })
-            }) { Text("Chụp ảnh") }
-            OutlinedButton(enabled = enabled, onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("Chọn ảnh") }
+            }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.PhotoCamera, null); Text("Chụp ảnh") }
+            OutlinedButton(enabled = enabled, onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                modifier = Modifier.weight(1f)) { Icon(Icons.Default.Image, null); Text("Chọn ảnh") }
+            }
+            val bytes = vm.photoBytes
+            val bitmap = remember(bytes,state.photoRevision,imageVersion) { bytes?.let { BitmapFactory.decodeByteArray(it,0,it.size)?.asImageBitmap() } }
+            bitmap?.let { Image(it,"Ảnh bữa ăn đã chọn",Modifier.fillMaxWidth().height(200.dp)) }
         }
         val bytes = vm.photoBytes
-        val bitmap = remember(bytes,state.photoRevision,imageVersion) { bytes?.let { BitmapFactory.decodeByteArray(it,0,it.size)?.asImageBitmap() } }
-        bitmap?.let { Image(it,"Ảnh bữa ăn đã chọn",Modifier.fillMaxWidth().height(200.dp)) }
+        HealthCard(title = "Phân tích ảnh") {
         Button(enabled = enabled && bytes != null && !state.photoConfirmed, onClick = {
             val upload = bytes ?: return@Button
-            vm.write { ctx ->
+            var baselineId = 0L
+            var requestSent = false
+            vm.write(reconcile = { ctx ->
+                if (!requestSent) true else {
+                    val latest = vm.api.latestPhoto(ctx.owner, ctx.date)
+                    if (latest == null || latest.id <= baselineId) false else {
+                        val analysis = latest.analysis ?: PhotoDto(emptyList(),
+                            "AI chưa phân tích được ảnh. Bạn có thể thử lại.", "Chưa có món nào được lưu vào nhật ký.")
+                        vm.publish(ctx) { it.copy(photo = analysis, photoConfirmed = false,
+                            photoRevision = it.photoRevision + 1,
+                            photoDrafts = analysis.items.map { item -> PhotoDraft(item.name,
+                                item.estimated_grams.display(), item.calories_kcal.display(),
+                                item.protein_g.display(), item.carb_g.display(), item.fat_g.display(), item.confidence) }) }
+                        true
+                    }
+                }
+            }) { ctx ->
+                baselineId = try { vm.api.latestPhoto(ctx.owner, ctx.date)?.id ?: 0L }
+                    catch (cancelled: CancellationException) { throw cancelled }
+                    catch (_: Exception) { throw ApiFailure(503, "Chưa kiểm tra được lần phân tích trước. Hãy thử lại.") }
                 val part = MultipartBody.Part.createFormData("image","meal.jpg",upload.toRequestBody(vm.photoMime.toMediaType()))
+                requestSent = true
                 val result = vm.api.analyze(ctx.owner,ctx.date,part)
                 vm.publish(ctx) { it.copy(photo = result, photoConfirmed = false, photoRevision = it.photoRevision+1,
                     photoDrafts=result.items.map { item -> PhotoDraft(item.name,item.estimated_grams.display(),item.calories_kcal.display(),item.protein_g.display(),item.carb_g.display(),item.fat_g.display(),item.confidence) }) }
             }
-        }) { Text("Phân tích ảnh") }
+        }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Search, null); Spacer(Modifier.width(8.dp)); Text("Phân tích ảnh")
+        }
+        }
         state.photo?.let { photo ->
-            Text(photo.notes)
-            Text(photo.disclaimer, style = MaterialTheme.typography.bodySmall)
+            HealthCard(title = "Kết quả phân tích") {
+                Text(photo.notes, color = Ink)
+                Text(photo.disclaimer, color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
             state.photoDrafts.forEachIndexed { index, item ->
-                Panel("Món ${index+1} • độ tin cậy ${(item.confidence*100).toInt()}%") {
+                HealthCard(title = "Món ${index+1} • độ tin cậy ${(item.confidence*100).toInt()}%") {
                     fun update(next: PhotoDraft) { val ctx = vm.context(); vm.publish(ctx) { it.copy(photoDrafts = it.photoDrafts.toMutableList().apply { set(index,next) }) } }
                     OutlinedTextField(item.name,{ update(item.copy(name=it.take(160))) },label={ Text("Tên món") },enabled=enabled && !state.photoConfirmed)
                     NumberInput("Khối lượng (g)",item.grams,enabled && !state.photoConfirmed) { update(item.copy(grams=it)) }
@@ -187,15 +251,44 @@ fun PhotoScreen(vm: AppViewModel) {
                     NumberInput("Fat (g)",item.fat,enabled && !state.photoConfirmed) { update(item.copy(fat=it)) }
                 }
             }
+            HealthCard(title = "Lưu vào nhật ký") {
             MealInputs(meal,time,enabled && !state.photoConfirmed,{meal=it},{time=it})
             val items=state.photoDrafts.mapNotNull{it.toPhotoItem()}
             val valid = items.isNotEmpty() && items.size==state.photoDrafts.size
             Button(enabled=enabled && valid && validMealTime(time) && !state.photoConfirmed,onClick={
-                vm.write { ctx ->
+                awaitingConfirmation = true
+                var baselineIds = emptySet<Long>()
+                var requestSent = false
+                val submittedItems = items.toList()
+                val submittedMeal = meal
+                val submittedTime = time
+                vm.write(success = { awaitingConfirmation = false; navigate("home") }, reconcile = { ctx ->
+                    if (!requestSent) true else {
+                        val remaining = vm.api.dashboard(ctx.owner, ctx.date).food_logs.filter { log ->
+                            log.id !in baselineIds && log.meal_type == submittedMeal &&
+                                log.meal_time == submittedTime
+                        }.toMutableList()
+                        val complete = submittedItems.all { item ->
+                            val index = remaining.indexOfFirst { log ->
+                                log.food_name == item.name &&
+                                    kotlin.math.abs(log.grams - item.estimated_grams) < 0.02 &&
+                                    kotlin.math.abs(log.calories_kcal - item.calories_kcal) < 0.05
+                            }
+                            if (index < 0) false else { remaining.removeAt(index); true }
+                        }
+                        if (complete) vm.publish(ctx) { it.copy(photoConfirmed = true) }
+                        complete
+                    }
+                }) { ctx ->
+                    baselineIds = try { vm.api.dashboard(ctx.owner, ctx.date).food_logs.map { it.id }.toSet() }
+                        catch (cancelled: CancellationException) { throw cancelled }
+                        catch (_: Exception) { throw ApiFailure(503, "Chưa kiểm tra được nhật ký trước khi lưu ảnh. Hãy thử lại.") }
+                    requestSent = true
                     vm.api.confirm(ctx.owner,mapOf("items" to items,"meal_type" to meal,"meal_time" to time,"log_date" to ctx.date))
                     vm.publish(ctx) { it.copy(photoConfirmed=true) }
                 }
-            }) { Text(if (state.photoConfirmed) "Đã lưu vào nhật ký" else "Xác nhận và lưu nhật ký") }
+            }, modifier = Modifier.fillMaxWidth()) { Text(if (state.photoConfirmed) "Đã lưu vào nhật ký" else "Xác nhận và lưu nhật ký") }
+            }
         }
     }
 }
