@@ -205,12 +205,12 @@ fun PhotoScreen(vm: AppViewModel, navigate: (String) -> Unit) {
         HealthCard(title = "Phân tích ảnh") {
         Button(enabled = enabled && bytes != null && !state.photoConfirmed, onClick = {
             val upload = bytes ?: return@Button
-            var baselineId = 0L
+            val requestId = UUID.randomUUID().toString()
             var requestSent = false
             vm.write(reconcile = { ctx ->
                 if (!requestSent) true else {
-                    val latest = vm.api.latestPhoto(ctx.owner, ctx.date)
-                    if (latest == null || latest.id <= baselineId) false else {
+                    val latest = vm.api.latestPhoto(ctx.owner, ctx.date, requestId)
+                    if (latest == null || latest.request_id != requestId) false else {
                         val analysis = latest.analysis ?: PhotoDto(emptyList(),
                             "AI chưa phân tích được ảnh. Bạn có thể thử lại.", "Chưa có món nào được lưu vào nhật ký.")
                         vm.publish(ctx) { it.copy(photo = analysis, photoConfirmed = false,
@@ -222,12 +222,9 @@ fun PhotoScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                     }
                 }
             }) { ctx ->
-                baselineId = try { vm.api.latestPhoto(ctx.owner, ctx.date)?.id ?: 0L }
-                    catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { throw ApiFailure(503, "Chưa kiểm tra được lần phân tích trước. Hãy thử lại.") }
                 val part = MultipartBody.Part.createFormData("image","meal.jpg",upload.toRequestBody(vm.photoMime.toMediaType()))
                 requestSent = true
-                val result = vm.api.analyze(ctx.owner,ctx.date,part)
+                val result = vm.api.analyze(ctx.owner,ctx.date,requestId,part)
                 vm.publish(ctx) { it.copy(photo = result, photoConfirmed = false, photoRevision = it.photoRevision+1,
                     photoDrafts=result.items.map { item -> PhotoDraft(item.name,item.estimated_grams.display(),item.calories_kcal.display(),item.protein_g.display(),item.carb_g.display(),item.fat_g.display(),item.confidence) }) }
             }
