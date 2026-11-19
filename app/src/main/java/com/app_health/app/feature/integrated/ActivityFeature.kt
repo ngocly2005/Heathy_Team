@@ -102,16 +102,16 @@ fun ActivityScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                     } else null
                 )
                 if (!manual && selected == null) {
-                    WeekStrip(vm)
-                    ExerciseCatalog(state.activities, search, enabled, state.loading,
-                        onSearch = { search = it.take(100) },
-                        onSelect = { selectedId = it.id }, onManual = { manual = true })
                     OutlinedButton(onClick = { diary = true }, enabled = enabled,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         border = BorderStroke(1.dp, Border), shape = RoundedCornerShape(20.dp)) {
                         Icon(Icons.Default.History, null, tint = Mint)
                         Spacer(Modifier.width(8.dp)); Text("Xem nhật ký luyện tập", color = Mint)
                     }
+                    WeekStrip(vm)
+                    ExerciseCatalog(state.activities, search, enabled, state.loading,
+                        onSearch = { search = it.take(100) },
+                        onSelect = { selectedId = it.id }, onManual = { manual = true })
                 } else {
                     if (selected != null) ExerciseArtwork(selected.name, Modifier.fillMaxWidth().height(190.dp))
                     WeekStrip(vm)
