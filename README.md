@@ -2,7 +2,7 @@
 
 Bản UI chính để giáo viên push vào `ngocly2005/Heathy_Team`, học sinh pull về.
 Backend tương ứng là repo riêng `ngocly2005/App_Heathy_BE`; cần source tích hợp
-và migration head `20261117_0013`. Xem [cấu hình](docs/SETUP.md) trước khi chạy.
+và migration head `20261119_0016`. Xem [cấu hình](docs/SETUP.md) trước khi chạy.
 
 Lịch đầy đủ mới có **32 task FE/BE**: xem [đối chiếu tính năng và lịch dự kiến](docs/SPRINT_AUDIT_20261113.md)
 và [bảng lịch CSV](docs/SPRINT_SCHEDULE_20261113.csv). Mã S*-T* dưới là mã chia cũ;
@@ -11,6 +11,8 @@ tài liệu mới đối chiếu theo mã S*-BL* do giáo viên cung cấp.
 Đăng ký/đăng nhập bằng **email và mật khẩu** hoặc Google. Trong **Tài khoản →
 Bảo mật tài khoản**, thêm/đổi mật khẩu hoặc liên kết Google cùng email để dùng
 chung user ID, quyền và dữ liệu. Mật khẩu không lưu trên thiết bị.
+Ở màn đăng nhập, **Quên mật khẩu?** gửi mã 8 chữ số qua email cho tài khoản có
+mật khẩu; backend cần cấu hình SMTP và chạy migration mới.
 
 Học sinh xem [hướng dẫn vào UI theo từng task](docs/HUONG_DAN_VAO_UI_THEO_TASK.md),
 gồm cách mở/đăng nhập React Admin (task 5/11/16) và chat AI (task 12).
@@ -22,7 +24,9 @@ Học sinh dùng [hướng dẫn UI đủ 32 task của 3 sprint](docs/HUONG_DAN
 Màn mục tiêu hiện [cảnh báo sức khỏe tham khảo](docs/CANH_BAO_MUC_TIEU_20261115.md);
 chat AI mở nhanh bằng nút **+ → Tư vấn bữa ăn với AI**.
 
-Đợt 17/11: Vận động có **Xem nhật ký** để xem/sửa/xóa hoạt động; **Tìm món ăn →
+Vận động hiển thị buổi tập của ngày đã chọn ngay trên danh mục, cho sửa thời gian
+hoặc xóa; chọn hoạt động hay **Thêm thủ công** để ghi buổi mới. **Xem nhật ký**
+hiển thị các buổi tập cũ. **Tìm món ăn →
 Tạo món** tạo món riêng và chọn ảnh; **Thực đơn đã lưu → Tạo bữa ăn từ các món
 của tôi** chọn món trực tiếp, chỉnh thành phần, lưu và thêm nhanh. Ảnh món
 được giữ trên ổ đĩa backend; món catalog chỉ hiện ảnh sau khi Admin tải ảnh lên.

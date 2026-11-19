@@ -102,13 +102,22 @@ fun ActivityScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                     } else null
                 )
                 if (!manual && selected == null) {
-                    OutlinedButton(onClick = { diary = true }, enabled = enabled,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        border = BorderStroke(1.dp, Border), shape = RoundedCornerShape(20.dp)) {
-                        Icon(Icons.Default.History, null, tint = Mint)
-                        Spacer(Modifier.width(8.dp)); Text("Xem nhật ký luyện tập", color = Mint)
-                    }
                     WeekStrip(vm)
+                    val selectedDayLogs = state.dashboard?.activity_logs.orEmpty()
+                        .sortedByDescending { it.id }
+                    HealthCard(title = "Buổi tập ngày ${uiDate(state.date.toString())}",
+                        actionLabel = "Xem nhật ký", onAction = { diary = true }) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${selectedDayLogs.size} buổi tập", Modifier.weight(1f), color = Muted)
+                            Text("${selectedDayLogs.sumOf { it.calories_burned }.uiNumber()} kcal",
+                                color = Mint, fontWeight = FontWeight.Bold)
+                        }
+                        if (selectedDayLogs.isEmpty())
+                            Text("Chưa có buổi tập. Chọn hoạt động bên dưới để thêm.", color = Muted)
+                    }
+                    selectedDayLogs.forEach { log -> ExerciseLogCard(log, enabled,
+                        onEdit = { editing = log; editMinutes = log.duration_minutes.toString() },
+                        onDelete = { deleting = log }) }
                     ExerciseCatalog(state.activities, search, enabled, state.loading,
                         onSearch = { search = it.take(100) },
                         onSelect = { selectedId = it.id }, onManual = { manual = true })
@@ -167,7 +176,13 @@ fun ActivityScreen(vm: AppViewModel, navigate: (String) -> Unit) {
                                 var postStarted = false
                                 val expectedName = if (manual) manualName.trim() else selected!!.name
                                 val expectedMet = if (manual) metNumber!! else selected!!.met
-                                vm.write(success = { navigate("home") }, reconcile = { ctx ->
+                                vm.write(success = {
+                                    manual = false
+                                    selectedId = null
+                                    minutes = "30"
+                                    manualName = ""
+                                    manualMet = ""
+                                }, reconcile = { ctx ->
                                     postStarted && vm.api.dashboard(ctx.owner, ctx.date).activity_logs.any {
                                         it.id !in existingIds && it.activity_name == expectedName &&
                                             it.duration_minutes == duration &&
@@ -291,37 +306,42 @@ private fun ExerciseDiary(
     logs.groupBy { it.log_date.take(7) }.forEach { (month, entries) ->
         Text("Tháng ${month.takeLast(2)}/${month.take(4)}", color = Ink,
             style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        entries.forEach { log ->
-            HealthCard {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ExerciseArtwork(log.activity_name, Modifier.size(68.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(log.activity_name, color = Ink, fontWeight = FontWeight.Bold)
-                        Text(uiDate(log.log_date), color = Muted, style = MaterialTheme.typography.bodySmall)
-                        Text("${log.duration_minutes} phút · ${log.calories_burned.uiNumber()} kcal",
-                            color = Mint, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-                HorizontalDivider(color = Border)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(enabled = enabled, onClick = { onEdit(log) },
-                        border = BorderStroke(1.dp, Border)) {
-                        Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(5.dp)); Text("Sửa thời gian")
-                    }
-                    TextButton(enabled = enabled, onClick = { onDelete(log) }) {
-                        Icon(Icons.Default.DeleteOutline, null, Modifier.size(16.dp), tint = UiDanger)
-                        Spacer(Modifier.width(5.dp)); Text("Xóa", color = UiDanger)
-                    }
-                }
-            }
-        }
+        entries.forEach { log -> ExerciseLogCard(log, enabled,
+            onEdit = { onEdit(log) }, onDelete = { onDelete(log) }) }
     }
     if (state.activityHistoryHasMore) OutlinedButton(enabled = enabled && !loadingMore,
         onClick = onLoadMore, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
         border = BorderStroke(1.dp, Border), shape = RoundedCornerShape(20.dp)) {
         Text(if (loadingMore) "Đang tải…" else "Xem hoạt động cũ hơn")
+    }
+}
+
+@Composable
+private fun ExerciseLogCard(log: ActivityLogDto, enabled: Boolean,
+    onEdit: () -> Unit, onDelete: () -> Unit) {
+    HealthCard {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ExerciseArtwork(log.activity_name, Modifier.size(68.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(log.activity_name, color = Ink, fontWeight = FontWeight.Bold)
+                Text(uiDate(log.log_date), color = Muted, style = MaterialTheme.typography.bodySmall)
+                Text("${log.duration_minutes} phút · ${log.calories_burned.uiNumber()} kcal",
+                    color = Mint, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        HorizontalDivider(color = Border)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = enabled, onClick = onEdit,
+                border = BorderStroke(1.dp, Border)) {
+                Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(5.dp)); Text("Sửa thời gian")
+            }
+            TextButton(enabled = enabled, onClick = onDelete) {
+                Icon(Icons.Default.DeleteOutline, null, Modifier.size(16.dp), tint = UiDanger)
+                Spacer(Modifier.width(5.dp)); Text("Xóa", color = UiDanger)
+            }
+        }
     }
 }
 

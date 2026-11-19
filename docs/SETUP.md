@@ -3,8 +3,9 @@
 ## Cập nhật 13/11: email/mật khẩu và 32 task
 
 Pull cả FE và BE; cài requirements BE có Argon2 và tự chạy migration head
-`20261117_0013` theo README BE. Màn đầu Android có Đăng ký/Đăng nhập email và nút
+`20261119_0016` theo README BE. Màn đầu Android có Đăng ký/Đăng nhập email và nút
 Google song song. Email cần BE đang chạy; đăng nhập email không cần Google Client ID.
+Quên mật khẩu dùng mã email 8 chữ số, cần cấu hình SMTP trên BE.
 
 Tài khoản Google cũ: đăng nhập Google → Tài khoản → Bảo mật tài khoản → thêm mật khẩu.
 Tài khoản email muốn dùng Google: đăng nhập email → Bảo mật tài khoản → Liên kết

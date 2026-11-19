@@ -1,5 +1,17 @@
 # Kiểm chứng tích hợp
 
+## 2026-11-19 — Mã đặt lại và buổi tập đã ghi
+
+- Quên mật khẩu: một ô một dòng chỉ nhận tối đa 8 chữ số; email và mã được gửi
+  cùng mật khẩu mới về API. BE kiểm tra mã theo email, thời hạn, số lần thử và một lần dùng.
+- Vận động: chọn ngày để thấy các buổi tập đã ghi ở đầu màn; từng buổi có **Sửa
+  thời gian** và **Xóa**. Chọn bài tập hoặc **Thêm thủ công** để ghi buổi mới; sau
+  khi lưu vẫn ở màn Vận động để kiểm tra kết quả.
+- BE: 62 bài kiểm tra HTTP thành công; migration `20261119_0016` chạy thử từ head
+  trước trên SQLite thành công.
+- Android: chưa biên dịch được trên máy này. Java đang cài là 26.0.2.1 và Gradle
+  dừng trước khi biên dịch Kotlin vì không phân tích được phiên bản Java này.
+
 ## 2026-11-17 — Vận động, bữa ăn cá nhân và ảnh món ăn
 
 - Android: **91 JVM tests đạt**, tạo APK debug và chạy lint. Kiểm tra wire DTO

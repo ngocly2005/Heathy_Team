@@ -51,16 +51,19 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         }
     }
 
-    fun resetPassword(token: String, next: String) {
+    fun resetPassword(email: String, token: String, next: String) {
         if (mutableUiState.value.busy) return
         val problem = newPasswordError(next)
-        if (problem != null || token.trim().length < 20) {
+        val emailProblem = accountEmailError(email)
+        if (problem != null || emailProblem != null || token.length != 8 ||
+            token.any { it !in '0'..'9' }) {
             mutableUiState.value = mutableUiState.value.copy(
-                error = problem ?: "Vui lòng dán mã đặt lại từ email.", message = null)
+                error = problem ?: emailProblem ?: "Nhập mã gồm đúng 8 chữ số được gửi tới email.",
+                message = null)
             return
         }
         credentials("Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.", ::passwordResetError) {
-            repository.resetPassword(token, next)
+            repository.resetPassword(email, token, next)
         }
     }
 

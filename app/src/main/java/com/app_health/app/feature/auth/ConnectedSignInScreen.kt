@@ -116,7 +116,7 @@ fun ConnectedSignInScreen(auth: AuthViewModel) {
         PasswordRecoveryScreen(email, ui.busy, ui.error, ui.message,
             onEmailChange = { email = it; auth.clearFeedback() },
             onRequest = { auth.requestPasswordReset(email) },
-            onReset = { token, next -> auth.resetPassword(token, next) },
+            onReset = { token, next -> auth.resetPassword(email, token, next) },
             onBack = { recovering = false; auth.clearFeedback() })
         return
     }
@@ -149,7 +149,7 @@ private fun PasswordRecoveryScreen(email: String, busy: Boolean, error: String?,
             Icon(Icons.Default.Lock, null, Modifier.size(29.dp), tint = Color.White)
         }
         Text("Quên mật khẩu", color = AuthInk, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-        Text("Nhập email tài khoản, sau đó dán mã nhận được để đặt mật khẩu mới.",
+        Text("Nhập email tài khoản, sau đó nhập mã nhận được để đặt mật khẩu mới.",
             color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
         if (!resetDone) {
             AuthEntryField("Email", email, !busy, Icons.Default.Email, KeyboardType.Email,
@@ -160,16 +160,20 @@ private fun PasswordRecoveryScreen(email: String, busy: Boolean, error: String?,
             }
             Text("Mã chỉ gửi cho tài khoản đã đăng ký bằng email, có thời hạn và chỉ dùng một lần.",
                 color = Muted, style = MaterialTheme.typography.bodySmall)
-            OutlinedTextField(token, { token = it.take(2048) }, label = { Text("Mã đặt lại từ email") },
-                enabled = !busy, minLines = 2, maxLines = 3, modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false))
+            OutlinedTextField(token, { token = it.filter { digit -> digit in '0'..'9' }.take(8) },
+                label = { Text("Mã đặt lại từ email") }, singleLine = true,
+                supportingText = { Text("Mã gồm 8 chữ số được gửi tới email của bạn.", color = Muted) },
+                enabled = !busy, modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number,
+                    autoCorrectEnabled = false, imeAction = ImeAction.Next))
             AuthEntryField("Mật khẩu mới", password, !busy, Icons.Default.Lock,
                 KeyboardType.Password, password = true, errorText = newPasswordError(password),
                 hint = "8–128 ký tự", onChange = { password = it })
             AuthEntryField("Xác nhận mật khẩu mới", confirmation, !busy, Icons.Default.Lock,
                 KeyboardType.Password, password = true,
                 errorText = confirmationError(password, confirmation), onChange = { confirmation = it })
-            Button(enabled = !busy && token.trim().length >= 20 && validPassword,
+            Button(enabled = !busy && token.length == 8 && validPassword,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                 onClick = { onReset(token, password) }) { Text("Đặt lại mật khẩu") }
         }

@@ -110,8 +110,8 @@ class AuthRepository internal constructor(
         rawApi.requestPasswordReset(PasswordResetStartRequest(email.trim()))
     }
 
-    suspend fun resetPassword(token: String, next: String): AuthMessage = operations.withLock {
-        rawApi.resetPassword(PasswordResetFinishRequest(token.trim(), next))
+    suspend fun resetPassword(email: String, token: String, next: String): AuthMessage = operations.withLock {
+        rawApi.resetPassword(PasswordResetFinishRequest(email.trim(), token.trim(), next))
     }
 
     private fun owner(expectedId: Long): SessionRequestTag {

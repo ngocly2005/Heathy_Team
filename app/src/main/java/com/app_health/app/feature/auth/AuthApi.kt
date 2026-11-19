@@ -17,7 +17,8 @@ class RegisterRequest(val email: String, val password: String, @SerializedName("
 class PasswordUpdateRequest(@SerializedName("current_password") val currentPassword: String?,
     @SerializedName("new_password") val newPassword: String)
 class PasswordResetStartRequest(val email: String)
-class PasswordResetFinishRequest(val token: String, @SerializedName("new_password") val newPassword: String)
+class PasswordResetFinishRequest(val email: String, val token: String,
+    @SerializedName("new_password") val newPassword: String)
 class RefreshRequest(@SerializedName("refresh_token") val refreshToken: String)
 class TokenPair(
     @SerializedName("access_token") val accessToken: String,
